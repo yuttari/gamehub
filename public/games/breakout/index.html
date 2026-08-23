@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Breakout</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:linear-gradient(160deg,#1b2a4a,#16131a);color:#fff;
+    display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;
+  }
+  .wrap{width:100%;max-width:460px;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  h1{font-size:24px;font-weight:900;}
+  .pill{background:rgba(255,255,255,.12);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;}
+  .pill b{color:#ffd23f;}
+  .stage{position:relative;width:100%;aspect-ratio:3/4;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:18px;overflow:hidden;touch-action:none;}
+  canvas{display:block;width:100%;height:100%;}
+  .overlay{position:absolute;inset:0;background:rgba(22,19,26,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;opacity:0;pointer-events:none;transition:opacity .25s;border-radius:18px;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay h2{font-size:30px;font-weight:900;}
+  .overlay p{opacity:.7;font-size:14px;}
+  .btn{background:#ffd23f;color:#16131a;border:none;border-radius:12px;padding:12px 26px;font-weight:900;font-size:16px;cursor:pointer;transition:transform .1s;}
+  .btn:active{transform:scale(.95);}
+  .hint{margin-top:10px;text-align:center;font-size:12px;opacity:.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🧱 Breakout</h1>
+    <div class="pill">Score <b id="score">0</b>　Level <b id="lv">1</b></div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlay show" id="ov">
+      <h2 id="ovt">Breakout Storm</h2>
+      <p id="ovp">Move the mouse or swipe to control the paddle. Don't let the ball drop!</p>
+      <button class="btn" id="start">Start Game</button>
+    </div>
+  </div>
+  <p class="hint">PC: Move mouse　·　Mobile: Swipe screen</p>
+</div>
+
+<script>
+(function(){
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const stage=document.getElementById('stage'),ov=document.getElementById('ov'),ovt=document.getElementById('ovt'),ovp=document.getElementById('ovp'),startBtn=document.getElementById('start'),scoreEl=document.getElementById('score'),lvEl=document.getElementById('lv');
+  let W=0,H=0,paddle,ball,bricks,score,level,running=false,raf;
+
+  const COLORS=['#ff4d12','#ff703d','#ffd23f','#4ade80','#38bdf8','#a78bfa'];
+
+  function resize(){
+    W=stage.clientWidth; H=stage.clientHeight;
+    cv.width=W*devicePixelRatio; cv.height=H*devicePixelRatio;
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  }
+  function buildBricks(){
+    bricks=[];
+    const rows=5+Math.min(level,3), cols=8, pad=6;
+    const bw=(W-pad*(cols+1))/cols, bh=Math.min(18,H*0.03+6);
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+      bricks.push({x:pad+c*(bw+pad),y:pad+r*(bh+pad)+40,w:bw,h:bh,color:COLORS[(r+level)%COLORS.length],alive:true});
+    }
+  }
+  function reset(){
+    paddle={w:W*0.22,h:12,x:W/2-W*0.11,y:H-34};
+    ball={r:8,x:W/2,y:H-60,vx:3+level*0.4,vy:-(3+level*0.4)};
+    score=0;scoreEl.textContent=0;lvEl.textContent=level;
+    buildBricks();
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // bricks
+    bricks.forEach(b=>{if(b.alive){ctx.fillStyle=b.color;roundRect(b.x,b.y,b.w,b.h,4);ctx.fill();}});
+    // paddle
+    ctx.fillStyle='#fff';roundRect(paddle.x,paddle.y,paddle.w,paddle.h,6);ctx.fill();
+    // ball
+    ctx.fillStyle='#ffd23f';ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,7);ctx.fill();
+  }
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+  function update(){
+    if(!running)return;
+    ball.x+=ball.vx; ball.y+=ball.vy;
+    if(ball.x<ball.r||ball.x>W-ball.r)ball.vx*=-1;
+    if(ball.y<ball.r)ball.vy*=-1;
+    if(ball.y>H+20)return lose();
+    // paddle collision
+    if(ball.y+ball.r>=paddle.y&&ball.y-ball.r<=paddle.y+paddle.h&&ball.x>=paddle.x&&ball.x<=paddle.x+paddle.w){
+      ball.vy=-Math.abs(ball.vy);
+      const hit=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2);
+      ball.vx=hit*4;
+    }
+    // brick collision
+    bricks.forEach(b=>{
+      if(b.alive&&ball.x>b.x&&ball.x<b.x+b.w&&ball.y-ball.r<b.y+b.h&&ball.y+ball.r>b.y){
+        b.alive=false; ball.vy*=-1; score+=10; scoreEl.textContent=score;
+      }
+    });
+    if(bricks.every(b=>!b.alive)){level++;reset();}
+    draw();
+    raf=requestAnimationFrame(update);
+  }
+  function lose(){running=false;cancelAnimationFrame(raf);ovt.textContent='Ball dropped!';ovp.textContent='Score '+score;startBtn.textContent='Play Again';level=1;ov.classList.add('show');}
+
+  function movePaddle(clientX){
+    const r=stage.getBoundingClientRect();
+    const x=clientX-r.left;
+    paddle.x=Math.max(0,Math.min(W-paddle.w,x-paddle.w/2));
+  }
+  stage.addEventListener('mousemove',e=>{if(running)movePaddle(e.clientX);});
+  stage.addEventListener('touchmove',e=>{if(running){movePaddle(e.touches[0].clientX);e.preventDefault();}},{passive:false});
+  stage.addEventListener('touchstart',e=>{if(running)movePaddle(e.touches[0].clientX);},{passive:true});
+
+  function start(){resize();level=1;reset();ov.classList.remove('show');running=true;cancelAnimationFrame(raf);raf=requestAnimationFrame(update);}
+  startBtn.onclick=start;
+  window.addEventListener('resize',()=>{resize();if(!running)draw();});
+  resize();level=1;reset();draw();
+})();
+</script>
+</body>
+</html>

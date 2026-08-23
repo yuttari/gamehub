@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Bubble Pop Game - Pop colorful bubbles! Accessible and fun for everyone.">
+<title>Bubble Pop</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+}
+#score {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 16px;
+  border-radius: 12px;
+}
+#instructions {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  z-index: 10;
+  text-align: center;
+  white-space: nowrap;
+}
+#backBtn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+#backBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-5px);
+}
+#settingsBtn {
+  position: absolute;
+  top: 20px;
+  right: 80px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+#settingsBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+#settingsModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+#settingsModal.active {
+  display: flex;
+}
+.modal-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  width: 90%;
+  color: white;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 25px;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+.setting-group {
+  margin-bottom: 25px;
+}
+.setting-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+.setting-value {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: bold;
+}
+input[type="range"] {
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  outline: none;
+  -webkit-appearance: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  min-height: 24px;
+  min-width: 24px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  min-height: 24px;
+  min-width: 24px;
+}
+.button-group {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+}
+.btn {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+.btn-primary {
+  background: white;
+  color: #667eea;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.4);
+}
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+#gameCanvas {
+  display: block;
+  cursor: pointer;
+  touch-action: none;
+}
+.keyboard-hint {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  z-index: 10;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" id="backBtn" aria-label="Back to games" title="Back to games">←</a>
+<div id="score" role="status" aria-live="polite">Score: 0</div>
+<div id="instructions">Pop the bubbles!</div>
+<button id="settingsBtn" aria-label="Game settings" title="Game settings">⚙️</button>
+<canvas id="gameCanvas"></canvas>
+<div class="keyboard-hint" id="keyboardHint">Click or tap to pop bubbles! Press S for settings.</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" role="dialog" aria-label="Game settings">
+  <div class="modal-content">
+    <div class="modal-header">⚙️ Game Settings</div>
+    
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Bubble Count</span>
+        <span class="setting-value" id="bubbleCountValue">2-4</span>
+      </div>
+      <input type="range" id="bubbleCountSlider" min="2" max="12" value="4" step="1" 
+        aria-label="Bubble count" aria-valuemin="2" aria-valuemax="12" aria-valuenow="4">
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Bubble Speed</span>
+        <span class="setting-value" id="bubbleSpeedValue">4</span>
+      </div>
+      <input type="range" id="bubbleSpeedSlider" min="1" max="8" value="4" step="1"
+        aria-label="Bubble speed" aria-valuemin="1" aria-valuemax="8" aria-valuenow="4">
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Bubble Size</span>
+        <span class="setting-value" id="bubbleSizeValue">4</span>
+      </div>
+      <input type="range" id="bubbleSizeSlider" min="1" max="10" value="4" step="1"
+        aria-label="Bubble size" aria-valuemin="1" aria-valuemax="10" aria-valuenow="4">
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="applyBtn">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript" src="cordova.js"></script>
+<script src="js/game-engine.js"></script>
+<script src="js/accessibility-panel.js"></script>
+<script>
+  // Game configuration
+  const config = {
+    minBubbles: 1,
+    maxBubbles: 4,
+    spawnInterval: 2000,
+    bubbleMinSize: 40,
+    bubbleMaxSize: 80,
+    bubbleSpeed: 2
+  };
+
+  // Settings values (1-8 scale)
+  let settings = {
+    bubbleCount: 4,
+    bubbleSpeed: 4,
+    bubbleSize: 4
+  };
+
+  // Temporary settings while modal is open
+  let tempSettings = {...settings};
+
+  // Game state
+  let canvas, ctx;
+  let bubbles = [];
+  let score = 0;
+  let gameRunning = false;
+  let spawnTimer;
+  let audioEngine;
+  let gameLoop;
+  let accessibilityPanel;
+  let keyboardTargetIndex = -1;
+  let keyboardMode = false;
+
+  // Initialize audio context
+  function initAudio() {
+    audioEngine = new GameEngine.AudioEngine();
+    audioEngine.init();
+  }
+
+  // Update config based on settings
+  function updateConfig() {
+    config.maxBubbles = settings.bubbleCount;
+    config.minBubbles = Math.max(2, Math.floor(settings.bubbleCount / 2));
+    
+    // Speed: 1 = slowest (0.5x), 8 = fastest (4x)
+    config.bubbleSpeed = 0.5 + (settings.bubbleSpeed - 1) * 0.5;
+    
+    // Size: 1 = smallest (80-160), 10 = largest (400-800) - increased max for bigger bubbles
+    const sizeMultiplier = settings.bubbleSize / 4;
+    config.bubbleMinSize = 80 * sizeMultiplier;
+    config.bubbleMaxSize = 160 * sizeMultiplier;
+  }
+
+  // Settings Modal Functions
+  function openSettings() {
+    tempSettings = {...settings};
+    updateSliderDisplays();
+    document.getElementById('settingsModal').classList.add('active');
+    document.getElementById('settingsBtn').setAttribute('aria-expanded', 'true');
+    audioEngine.announce('Settings menu opened');
+  }
+
+  function closeSettings() {
+    document.getElementById('settingsModal').classList.remove('active');
+    document.getElementById('settingsBtn').setAttribute('aria-expanded', 'false');
+  }
+
+  function applySettings() {
+    settings = {...tempSettings};
+    updateConfig();
+    restartGame();
+    closeSettings();
+    audioEngine.announce(`Settings applied. Bubble count ${settings.bubbleCount}, speed ${settings.bubbleSpeed}, size ${settings.bubbleSize}`);
+  }
+
+  function updateSliderDisplays() {
+    const countSlider = document.getElementById('bubbleCountSlider');
+    const speedSlider = document.getElementById('bubbleSpeedSlider');
+    const sizeSlider = document.getElementById('bubbleSizeSlider');
+    
+    countSlider.value = tempSettings.bubbleCount;
+    speedSlider.value = tempSettings.bubbleSpeed;
+    sizeSlider.value = tempSettings.bubbleSize;
+    
+    updateSliderValue('bubbleCount', tempSettings.bubbleCount);
+    updateSliderValue('bubbleSpeed', tempSettings.bubbleSpeed);
+    updateSliderValue('bubbleSize', tempSettings.bubbleSize);
+  }
+
+  function updateSliderValue(type, value) {
+    switch(type) {
+      case 'bubbleCount':
+        const minCount = Math.max(2, Math.floor(value / 2));
+        document.getElementById('bubbleCountValue').textContent = `${minCount}-${value}`;
+        tempSettings.bubbleCount = parseInt(value);
+        break;
+      case 'bubbleSpeed':
+        const speedLabels = ['Slowest', 'Very Slow', 'Slow', 'Medium-Slow', 'Medium', 'Medium-Fast', 'Fast', 'Fastest'];
+        document.getElementById('bubbleSpeedValue').textContent = speedLabels[value - 1];
+        tempSettings.bubbleSpeed = parseInt(value);
+        break;
+      case 'bubbleSize':
+        // Updated labels for 1-10 range
+        const sizeLabels = ['Tiny', 'Very Small', 'Small', 'Medium-Small', 'Medium', 'Medium-Large', 'Large', 'Very Large', 'Extra Large', 'Huge'];
+        document.getElementById('bubbleSizeValue').textContent = sizeLabels[value - 1];
+        tempSettings.bubbleSize = parseInt(value);
+        break;
+    }
+  }
+
+  function restartGame() {
+    bubbles = [];
+    if (spawnTimer) {
+      clearInterval(spawnTimer);
+    }
+    
+    score = 0;
+    updateScore();
+    spawnBubbles();
+    spawnTimer = setInterval(spawnBubbles, config.spawnInterval);
+  }
+
+  // Update score with screen reader announcement
+  function updateScore() {
+    const scoreEl = document.getElementById('score');
+    scoreEl.textContent = `Score: ${score}`;
+    
+    // Announce score milestones
+    if (score > 0 && score % 10 === 0) {
+      audioEngine.announce(`Score ${score}!`);
+    }
+  }
+
+  // Bubble class
+  class Bubble {
+    constructor() {
+      this.size = Math.random() * (config.bubbleMaxSize - config.bubbleMinSize) + config.bubbleMinSize;
+      this.radius = this.size / 2;
+      
+      // Random spawn location (edge of screen)
+      const edge = Math.floor(Math.random() * 4);
+      
+      switch(edge) {
+        case 0:
+          this.x = Math.random() * canvas.width;
+          this.y = -this.radius;
+          break;
+        case 1:
+          this.x = canvas.width + this.radius;
+          this.y = Math.random() * canvas.height;
+          break;
+        case 2:
+          this.x = Math.random() * canvas.width;
+          this.y = canvas.height + this.radius;
+          break;
+        case 3:
+          this.x = -this.radius;
+          this.y = Math.random() * canvas.height;
+          break;
+      }
+
+      // Random velocity vector
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * config.bubbleSpeed + 1;
+      this.vx = Math.cos(angle) * speed;
+      this.vy = Math.sin(angle) * speed;
+
+      // Random color
+      this.hue = Math.random() * 360;
+      this.opacity = 0.7;
+      
+      // Pop animation
+      this.popping = false;
+      this.popProgress = 0;
+      
+      // Keyboard focus
+      this.focused = false;
+    }
+
+    update() {
+      if (!this.popping) {
+        this.x += this.vx;
+        this.y += this.vy;
+      } else {
+        this.popProgress += 0.1;
+      }
+    }
+
+    draw() {
+      if (this.popProgress >= 1) return;
+
+      ctx.save();
+      
+      if (this.popping) {
+        ctx.globalAlpha = 1 - this.popProgress;
+        const scale = 1 + this.popProgress * 2;
+        ctx.translate(this.x, this.y);
+        ctx.scale(scale, scale);
+        ctx.translate(-this.x, -this.y);
+      } else {
+        ctx.globalAlpha = this.opacity;
+      }
+
+      // Keyboard focus indicator
+      if (this.focused) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius + 8, 0, Math.PI * 2);
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      }
+
+      // Bubble body
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${this.hue}, 70%, 60%, ${this.opacity})`;
+      ctx.fill();
+      
+      // Highlight
+      ctx.beginPath();
+      ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${this.hue}, 70%, 80%, ${this.opacity * 0.6})`;
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    contains(x, y) {
+      const dx = x - this.x;
+      const dy = y - this.y;
+      return Math.sqrt(dx * dx + dy * dy) <= this.radius;
+    }
+
+    pop() {
+      if (this.popping) return;
+      this.popping = true;
+      audioEngine.playPop();
+      score++;
+      updateScore();
+    }
+  }
+
+  function spawnBubbles() {
+    const count = Math.floor(Math.random() * (config.maxBubbles - config.minBubbles + 1)) + config.minBubbles;
+    for (let i = 0; i < count; i++) {
+      if (bubbles.length < 50) { // Limit total bubbles
+        bubbles.push(new Bubble());
+      }
+    }
+  }
+
+  function handleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    checkBubbleHit(x, y);
+  }
+
+  function handleTouch(e) {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    checkBubbleHit(x, y);
+  }
+
+  function checkBubbleHit(x, y) {
+    let hit = false;
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      if (!bubbles[i].popping && bubbles[i].contains(x, y)) {
+        bubbles[i].pop();
+        hit = true;
+        break;
+      }
+    }
+    
+    if (!hit) {
+      // Create ripple effect at click location
+      createRipple(x, y);
+    }
+  }
+
+  function createRipple(x, y) {
+    // Simple visual feedback for missed clicks
+    const ripple = {
+      x: x,
+      y: y,
+      radius: 0,
+      alpha: 0.5,
+      update() {
+        this.radius += 2;
+        this.alpha -= 0.02;
+      },
+      draw(ctx) {
+        if (this.alpha <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      },
+      isDead() {
+        return this.alpha <= 0;
+      }
+    };
+    
+    // Add to a separate array or use existing particles
+    // For simplicity, we'll just skip this for now
+  }
+
+  // Keyboard controls
+  function handleKeydown(e) {
+    switch(e.key) {
+      case 's':
+      case 'S':
+        if (!document.getElementById('settingsModal').classList.contains('active')) {
+          openSettings();
+        }
+        break;
+      case 'Escape':
+        closeSettings();
+        break;
+      case 'Tab':
+        if (!keyboardMode) {
+          keyboardMode = true;
+          // Focus first bubble
+          if (bubbles.length > 0) {
+            keyboardTargetIndex = 0;
+            bubbles.forEach((b, i) => b.focused = (i === 0));
+            audioEngine.announce(`Keyboard mode enabled. ${bubbles.length} bubbles. Use arrow keys to navigate, Enter or Space to pop.`);
+            document.getElementById('keyboardHint').textContent = 'Keyboard mode! Arrow keys to navigate, Enter/Space to pop, S for settings.';
+          }
+        } else {
+          // Cycle through bubbles
+          keyboardTargetIndex = (keyboardTargetIndex + 1) % bubbles.length;
+          bubbles.forEach((b, i) => b.focused = (i === keyboardTargetIndex));
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowUp':
+      case 'ArrowDown':
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        if (keyboardMode && bubbles.length > 0) {
+          e.preventDefault();
+          navigateBubbles(e.key);
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        if (keyboardMode && keyboardTargetIndex >= 0 && keyboardTargetIndex < bubbles.length) {
+          e.preventDefault();
+          const bubble = bubbles[keyboardTargetIndex];
+          if (!bubble.popping) {
+            bubble.pop();
+          }
+        }
+        break;
+    }
+  }
+
+  function navigateBubbles(key) {
+    if (bubbles.length === 0) return;
+    
+    const currentBubble = bubbles[keyboardTargetIndex];
+    let nearest = -1;
+    let nearestDist = Infinity;
+    
+    bubbles.forEach((bubble, i) => {
+      if (i === keyboardTargetIndex || bubble.popping) return;
+      
+      let dist = Infinity;
+      switch(key) {
+        case 'ArrowUp':
+          if (bubble.y < currentBubble.y) {
+            dist = currentBubble.y - bubble.y + Math.abs(bubble.x - currentBubble.x) * 0.5;
+          }
+          break;
+        case 'ArrowDown':
+          if (bubble.y > currentBubble.y) {
+            dist = bubble.y - currentBubble.y + Math.abs(bubble.x - currentBubble.x) * 0.5;
+          }
+          break;
+        case 'ArrowLeft':
+          if (bubble.x < currentBubble.x) {
+            dist = currentBubble.x - bubble.x + Math.abs(bubble.y - currentBubble.y) * 0.5;
+          }
+          break;
+        case 'ArrowRight':
+          if (bubble.x > currentBubble.x) {
+            dist = bubble.x - currentBubble.x + Math.abs(bubble.y - currentBubble.y) * 0.5;
+          }
+          break;
+      }
+      
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = i;
+      }
+    });
+    
+    if (nearest >= 0) {
+      keyboardTargetIndex = nearest;
+      bubbles.forEach((b, i) => b.focused = (i === keyboardTargetIndex));
+    }
+  }
+
+  function update() {
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      bubbles[i].update();
+      
+      if (bubbles[i].popProgress >= 1) {
+        bubbles.splice(i, 1);
+        // Update keyboard index if needed
+        if (keyboardMode) {
+          if (keyboardTargetIndex >= bubbles.length) {
+            keyboardTargetIndex = bubbles.length - 1;
+          }
+          if (keyboardTargetIndex >= 0) {
+            bubbles.forEach((b, i) => b.focused = (i === keyboardTargetIndex));
+          }
+        }
+      }
+    }
+  }
+
+  function draw() {
+    // Clear canvas
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw bubbles
+    for (let bubble of bubbles) {
+      bubble.draw();
+    }
+  }
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function init() {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    
+    initAudio();
+    updateConfig();
+    
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('touchstart', handleTouch, { passive: false });
+    document.addEventListener('keydown', handleKeydown);
+
+    document.getElementById('settingsBtn').addEventListener('click', openSettings);
+    document.getElementById('cancelBtn').addEventListener('click', closeSettings);
+    document.getElementById('applyBtn').addEventListener('click', applySettings);
+
+    // Slider listeners
+    document.getElementById('bubbleCountSlider').addEventListener('input', (e) => updateSliderValue('bubbleCount', e.target.value));
+    document.getElementById('bubbleSpeedSlider').addEventListener('input', (e) => updateSliderValue('bubbleSpeed', e.target.value));
+    document.getElementById('bubbleSizeSlider').addEventListener('input', (e) => updateSliderValue('bubbleSize', e.target.value));
+
+    // Initialize accessibility panel
+    accessibilityPanel = new AccessibilityPanel({
+      onChange: (settings) => {
+        audioEngine.setMuted(!settings.soundEnabled);
+        
+        if (settings.motorFriendly) {
+          config.spawnInterval = 3000; // Slower spawn
+          config.bubbleSpeed *= 0.5; // Slower movement
+        }
+        
+        if (settings.largeTargets) {
+          config.bubbleMinSize *= 1.5;
+          config.bubbleMaxSize *= 1.5;
+        }
+      }
+    });
+
+    // Start game
+    gameRunning = true;
+    spawnBubbles();
+    spawnTimer = setInterval(spawnBubbles, config.spawnInterval);
+
+    // Start game loop
+    gameLoop = new GameEngine.GameLoop(update, draw);
+    gameLoop.start();
+
+    // Announce game start
+    audioEngine.announce('Bubble Pop game started. Click or tap bubbles to pop them!');
+  }
+
+  // Cordova device ready event
+  document.addEventListener('deviceready', init, false);
+
+  // For browser testing
+  if (!window.cordova) {
+    window.addEventListener('load', init);
+  }
+</script>
+
+</body>
+</html>

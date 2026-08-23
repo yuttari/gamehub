@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Merge Watermelon</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; background:#fff3bf; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden; }
+  #g{ display:block; width:100%; height:100%; touch-action:none; background:linear-gradient(#fff9db,#ffe066); }
+  .hud{ position:fixed; top:12px; left:0; right:0; padding:0 16px; display:flex; justify-content:space-between; color:#e8590c; font-weight:900; pointer-events:none; }
+  .hud .s{ font-size:22px; }
+  .ov{ position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(232,89,12,.8); color:#fff; text-align:center; gap:16px; }
+  .ov h1{ font-size:36px; }
+  .btn{ padding:14px 36px; border:none; border-radius:999px; font-size:18px; font-weight:800; color:#e8590c; background:#fff3bf; cursor:pointer; }
+  .btn:active{ transform:scale(.95); }
+  .hidden{ display:none !important; }
+  .next{ position:fixed; bottom:14px; left:50%; transform:translateX(-50%); color:#b5651d; font-weight:800; font-size:14px; }
+</style>
+</head>
+<body>
+<canvas id="g"></canvas>
+<div class="hud"><div class="s">🍉 <span id="score">0</span></div><div class="s" id="best">Best 0</div></div>
+<div class="next" id="next">Next: 🍒</div>
+<div class="ov" id="start"><h1>🍉 Merge Watermelon</h1><p>Move and tap to drop fruit,<br>same fruits merge into a bigger one!<br>Don't let the pile cross the red line.</p><button class="btn" id="sb">Start Merging!</button></div>
+<div class="ov hidden" id="over"><h1>Game Over</h1><p>Score <b id="fs">0</b></p><button class="btn" id="rb">Play Again</button></div>
+<script>
+(function(){
+  const cv=document.getElementById('g'), ctx=cv.getContext('2d');
+  let W,H,L,R,TOP; function resize(){ W=cv.width=innerWidth; H=cv.height=innerHeight;
+    L=Math.max(40,W*0.12); R=W-L; T=H*0.16; }
+  resize(); addEventListener('resize',resize);
+  const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best'), nextEl=document.getElementById('next');
+  const startOv=document.getElementById('start'), overOv=document.getElementById('over'), fs=document.getElementById('fs');
+  const FRUITS=[
+    {e:'🍒',r:16,c:'#e03131'},{e:'🍓',r:22,c:'#ff6b6b'},{e:'🍇',r:28,c:'#845ef7'},
+    {e:'🍊',r:34,c:'#ff922b'},{e:'🍎',r:42,c:'#fa5252'},{e:'🍐',r:50,c:'#94d82d'},
+    {e:'🍑',r:58,c:'#ffa94d'},{e:'🍍',r:68,c:'#fcc419'},{e:'🍈',r:80,c:'#a9e34b'},
+    {e:'🍉',r:94,c:'#51cf66'}
+  ];
+  let fruits=[], cur=null, nextType=0, score=0, running, overT=0, best=0, dropX;
+
+  function reset(){ fruits=[]; score=0; scoreEl.textContent=0; nextType=Math.floor(Math.random()*5); cur=null; overT=0; }
+  function newCur(){ if(cur) return; cur={type:nextType, x:dropX||W/2, y:T+30, r:FRUITS[nextType].r}; nextType=Math.floor(Math.random()*5); nextEl.textContent='Next: '+FRUITS[nextType].e; }
+  function drop(){ if(!cur) return; fruits.push({...cur, vx:0, vy:0}); cur=null; setTimeout(newCur,250); }
+
+  function physics(){
+    for(const f of fruits){ f.vy+=0.6; f.x+=f.vx; f.y+=f.vy; f.vx*=0.99;
+      if(f.x<L+f.r){ f.x=L+f.r; f.vx*=-0.4; }
+      if(f.x>R-f.r){ f.x=R-f.r; f.vx*=-0.4; }
+      if(f.y>H-f.r){ f.y=H-f.r; f.vy*=-0.3; f.vx*=0.8; }
+      if(f.y<T+f.r){ f.y=T+f.r; f.vy=0; }
+    }
+    for(let it=0; it<4; it++){
+      for(let i=0;i<fruits.length;i++) for(let j=i+1;j<fruits.length;j++){
+        const a=fruits[i], b=fruits[j];
+        let dx=b.x-a.x, dy=b.y-a.y; let d=Math.hypot(dx,dy); let min=a.r+b.r;
+        if(d<min && d>0){
+          if(a.type===b.type && a.type<FRUITS.length-1 && !a.merged && !b.merged){
+            a.merged=b.merged=true;
+            const nt=a.type+1; const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+            fruits.push({type:nt, x:mx, y:my, r:FRUITS[nt].r, vx:0, vy:-2, merged:false});
+            score+= (nt+1)*2; scoreEl.textContent=score;
+            // remove merged
+            a.dead=b.dead=true;
+          } else {
+            const overlap=(min-d)/2; const nx=dx/d, ny=dy/d;
+            a.x-=nx*overlap; a.y-=ny*overlap; b.x+=nx*overlap; b.y+=ny*overlap;
+            const rvx=b.vx-a.vx, rvy=b.vy-a.vy; const vn=rvx*nx+rvy*ny;
+            if(vn<0){ const imp=vn*0.5; a.vx+=imp*nx; a.vy+=imp*ny; b.vx-=imp*nx; b.vy-=imp*ny; }
+          }
+        }
+      }
+    }
+    fruits=fruits.filter(f=>!f.dead);
+  }
+  function checkOver(){
+    let danger=false;
+    for(const f of fruits){ if(f.y-f.r<T+8 && Math.abs(f.vy)<1.2){ danger=true; } }
+    if(danger){ overT++; if(overT>90) gameOver(); } else overT=0;
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // jar walls
+    ctx.strokeStyle='#e8a87c'; ctx.lineWidth=6; ctx.beginPath();
+    ctx.moveTo(L,T); ctx.lineTo(L,H); ctx.lineTo(R,H); ctx.lineTo(R,T); ctx.stroke();
+    // danger line
+    ctx.strokeStyle='rgba(224,49,49,.5)'; ctx.setLineDash([8,8]); ctx.beginPath(); ctx.moveTo(L,T+4); ctx.lineTo(R,T+4); ctx.stroke(); ctx.setLineDash([]);
+    for(const f of fruits){ drawFruit(f.x,f.y,f.r,f.type); }
+    if(cur){ drawFruit(cur.x,cur.y,cur.r,cur.type); }
+  }
+  function drawFruit(x,y,r,type){
+    const fr=FRUITS[type];
+    ctx.save(); ctx.translate(x,y);
+    ctx.fillStyle=fr.c; ctx.globalAlpha=0.25; ctx.beginPath(); ctx.arc(0,0,r,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+    ctx.font=(r*1.6)+'px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(fr.e,0,2);
+    ctx.restore();
+  }
+  function loop(){ if(!running) return; newCur(); if(cur){ cur.x=dropX||W/2; } physics(); checkOver(); draw(); requestAnimationFrame(loop); }
+  function start(){ reset(); running=true; startOv.classList.add('hidden'); overOv.classList.add('hidden'); dropX=W/2; newCur(); loop(); }
+  function gameOver(){ running=false; if(score>best){best=score; bestEl.textContent='Best '+best;} fs.textContent=score; overOv.classList.remove('hidden'); }
+
+  function pos(e){ const t=e.touches?e.touches[0]:e; dropX=Math.max(L+30,Math.min(R-30,t.clientX)); }
+  cv.addEventListener('mousemove',pos); cv.addEventListener('touchmove',e=>{pos(e); e.preventDefault();},{passive:false});
+  cv.addEventListener('mousedown',drop); cv.addEventListener('touchstart',e=>{pos(e); drop(); e.preventDefault();},{passive:false});
+  document.getElementById('sb').onclick=start; document.getElementById('rb').onclick=start;
+  resize(); draw();
+})();
+</script>
+</body>
+</html>

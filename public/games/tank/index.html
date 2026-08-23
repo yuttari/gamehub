@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Battle Tanks</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; background:#1a2410; overflow:hidden; font-family:system-ui,sans-serif; }
+  #wrap{ position:relative; width:100%; height:100%; }
+  canvas{ display:block; width:100%; height:100%; background:#2d3b1c; touch-action:none; }
+  #hud{ position:absolute; top:12px; left:14px; color:#fff; font-weight:800; font-size:15px; text-shadow:0 2px 6px rgba(0,0,0,.6); pointer-events:none; }
+  #hud small{ display:block; font-weight:600; font-size:11px; opacity:.75; margin-top:2px; }
+  #ov{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; color:#fff; background:rgba(20,30,12,.82); backdrop-filter:blur(4px); text-align:center; padding:20px; }
+  #ov h1{ font-size:30px; background:linear-gradient(90deg,#c4e070,#84cc16); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #ov p{ max-width:460px; line-height:1.6; opacity:.85; font-size:14px; }
+  .btn{ border:none; cursor:pointer; padding:12px 26px; border-radius:999px; font-weight:800; font-size:16px; color:#16210c; background:linear-gradient(90deg,#c4e070,#84cc16); box-shadow:0 10px 30px -10px rgba(132,204,22,.7); }
+  .btn:active{ transform:scale(.96); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="hud">Level <span id="lv">1</span> · Enemies <span id="en">0</span><small>Arrow keys to move · Space/J to fire · drag + tap on mobile</small></div>
+  <div id="ov">
+    <h1>Battle Tanks</h1>
+    <p>Control your tank and destroy all enemy tanks! Use arrow keys to move and Space or J to fire; on mobile, drag to move and tap to shoot.</p>
+    <button class="btn" id="start">Start Battle</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+let W=960,H=540;
+function resize(){ const r=cv.getBoundingClientRect(); W=r.width; H=r.height; cv.width=W; cv.height=H; }
+resize(); addEventListener('resize',resize);
+const ov=document.getElementById('ov'), startBtn=document.getElementById('start'), lvEl=document.getElementById('lv'), enEl=document.getElementById('en');
+let running=false, last=0, level=1, player, bullets=[], enemies=[], enemyB=[], spawnT=0, keys={};
+function block(x,y){ const s=W/12; const cx=Math.floor(x/s), cy=Math.floor(y/s); if(cy<0||cy>11) return false; return walls[cy] && walls[cy][cx]==='#'; }
+let walls=[];
+function buildWalls(){ walls=[]; for(let y=0;y<12;y++){ const row=[]; for(let x=0;x<12;x++){ row.push(((x%2===0&&y%3===0)?'#':'.')); } walls.push(row); } }
+function reset(){ buildWalls(); player={x:W/2,y:H-40,r:15,dir:0,cd:0}; bullets=[]; enemies=[]; enemyB=[]; spawnT=0; lvEl.textContent=level; spawnEnemies(); }
+function spawnEnemies(){ const n=2+level; enemies=[]; for(let i=0;i<n;i++){ let x,y,tries=0; do{ x=40+Math.random()*(W-80); y=40+Math.random()*120; tries++; }while(block(x,y)&&tries<20); enemies.push({x,y,r:15,dir:Math.random()*6|0,cd:0,move:0}); } enEl.textContent=enemies.length; }
+function shoot(px,py,dir){ bullets.push({x:px,y:py,dir,v:7}); }
+function update(dt){
+  if(keys.left) player.x-=4; if(keys.right) player.x+=4; if(keys.up) player.y-=4; if(keys.down) player.y+=4;
+  player.x=Math.max(20,Math.min(W-20,player.x)); player.y=Math.max(20,Math.min(H-20,player.y));
+  player.cd--; if(keys.fire && player.cd<=0){ shoot(player.x,player.y-16,0); player.cd=18; }
+  for(const b of bullets){ if(b.dir===0)b.y-=b.v; if(b.dir===1)b.y+=b.v; if(b.dir===2)b.x-=b.v; if(b.dir===3)b.x+=b.v; }
+  bullets=bullets.filter(b=>b.x>0&&b.x<W&&b.y>0&&b.y<H);
+  for(const e of enemies){ e.move++; if(e.move>20){ e.move=0; e.dir=Math.random()*4|0; } const sp=2.2; if(e.dir===0)e.y-=sp; if(e.dir===1)e.y+=sp; if(e.dir===2)e.x-=sp; if(e.dir===3)e.x+=sp; e.x=Math.max(20,Math.min(W-20,e.x)); e.y=Math.max(20,Math.min(H-20,e.y)); e.cd--; if(e.cd<=0){ enemyB.push({x:e.x,y:e.y+16,dir:1,v:4}); e.cd=60; } }
+  for(const b of enemyB){ b.y+=b.v; }
+  enemyB=enemyB.filter(b=>b.y<H);
+  // bullet vs enemy
+  for(const e of enemies){ for(const b of bullets){ if(b.dir===0&&Math.hypot(e.x-b.x,e.y-b.y)<e.r+5){ e.dead=true; b.y=-999; } } }
+  enemies=enemies.filter(e=>!e.dead); enEl.textContent=enemies.length;
+  if(enemies.length===0){ level++; reset(); }
+  // enemy bullet vs player
+  for(const b of enemyB){ if(Math.hypot(b.x-player.x,b.y-player.y)<player.r+5){ gameOver(); return; } }
+}
+function draw(){
+  ctx.fillStyle='#2d3b1c'; ctx.fillRect(0,0,W,H);
+  const s=W/12;
+  for(let y=0;y<12;y++) for(let x=0;x<12;x++){ if(walls[y][x]==='#'){ ctx.fillStyle='#5a6b35'; ctx.fillRect(x*s+2,y*s+2,s-4,s-4); } }
+  // enemies
+  for(const e of enemies){ drawTank(e.x,e.y,'#ff6b6b'); }
+  drawTank(player.x,player.y,'#84cc16');
+  ctx.fillStyle='#fde047'; for(const b of bullets) ctx.fillRect(b.x-2,b.y-6,4,12);
+  ctx.fillStyle='#ff8a5b'; for(const b of enemyB) ctx.fillRect(b.x-2,b.y-6,4,12);
+}
+function drawTank(x,y,col){ ctx.save(); ctx.translate(x,y); ctx.fillStyle=col; ctx.fillRect(-13,-13,26,26); ctx.fillStyle='#16210c'; ctx.fillRect(-4,-20,8,9); ctx.restore(); }
+function loop(t){ if(!running){requestAnimationFrame(loop);return;} update(); draw(); requestAnimationFrame(loop); }
+addEventListener('keydown',e=>{ const k=e.key.toLowerCase(); if(k==='arrowleft')keys.left=true; if(k==='arrowright')keys.right=true; if(k==='arrowup')keys.up=true; if(k==='arrowdown')keys.down=true; if(k===' '||k==='j')keys.fire=true; });
+addEventListener('keyup',e=>{ const k=e.key.toLowerCase(); if(k==='arrowleft')keys.left=false; if(k==='arrowright')keys.right=false; if(k==='arrowup')keys.up=false; if(k==='arrowdown')keys.down=false; if(k===' '||k==='j')keys.fire=false; });
+let tx=null,ty=null;
+cv.addEventListener('touchstart',e=>{ const r=cv.getBoundingClientRect(); tx=(e.touches[0].clientX-r.left); ty=(e.touches[0].clientY-r.top); });
+cv.addEventListener('touchmove',e=>{ const r=cv.getBoundingClientRect(); tx=(e.touches[0].clientX-r.left); ty=(e.touches[0].clientY-r.top); player.x=tx; player.y=ty; e.preventDefault(); },{passive:false});
+cv.addEventListener('touchend',e=>{ keys.fire=true; setTimeout(()=>keys.fire=false,50); });
+function gameOver(){ running=false; ov.classList.remove('hidden'); ov.querySelector('h1').textContent='Tank Destroyed!'; ov.querySelector('p').innerHTML='You reached level <b>'+level+'</b>'; startBtn.textContent='Play Again'; }
+startBtn.addEventListener('click',()=>{ level=1; reset(); ov.classList.add('hidden'); running=true; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

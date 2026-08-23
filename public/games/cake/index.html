@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Cake Workshop</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #fff4e6; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; overflow: hidden; }
+  .wrap { display: flex; height: 100%; }
+  .stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+  canvas { background: linear-gradient(#fff,#fff4e6); border-radius: 16px; touch-action: none; }
+  .panel { width: 230px; background: #fff; box-shadow: -4px 0 20px rgba(255,170,100,.25); padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .panel h2 { font-size: 16px; color: #e8590c; }
+  .cat { font-size: 12px; font-weight: 800; color: #d9480f; margin-top: 4px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt { padding: 9px 12px; border-radius: 12px; background: #fff0e0; font-size: 13px; font-weight: 700; color: #e8590c; cursor: pointer; border: 2px solid transparent; transition: all .12s; }
+  .opt:hover { background: #ffe0c0; }
+  .btn { padding: 12px; border: none; border-radius: 14px; background: #e8590c; color: #fff; font-weight: 800; cursor: pointer; }
+  .btn.alt { background: #ffd6e7; color: #c2255c; }
+  .btn:active { transform: scale(.97); }
+  .row { display: flex; gap: 8px; }
+  .row .btn { flex: 1; }
+  .title { position: absolute; top: 12px; left: 16px; font-size: 20px; font-weight: 900; color: #e8590c; text-shadow: 0 2px 6px rgba(255,255,255,.8); }
+  .hint { position:absolute; bottom:14px; font-size:13px; color:#b5651d; }
+  @media (max-width: 560px){ .panel{ width: 160px; } .opt{ font-size:12px; padding:7px 9px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="title">🍰 Cake Workshop</div>
+    <canvas id="c" width="400" height="420"></canvas>
+    <div class="hint">Tap the ingredients on the left to stack them up, then light the candle 🕯️ to finish!</div>
+  </div>
+  <div class="panel">
+    <h2>Pick Ingredients 🧁</h2>
+    <div class="cat">🍞 Base</div>
+    <div class="opts" id="base"></div>
+    <div class="cat">🍦 Filling</div>
+    <div class="opts" id="fill"></div>
+    <div class="cat">🍓 Decor</div>
+    <div class="opts" id="deco"></div>
+    <div class="row">
+      <button class="btn" id="candle">🕯️ Light Candle</button>
+      <button class="btn alt" id="undo">↩️ Undo</button>
+    </div>
+    <button class="btn alt" id="reset">🗑️ Clear</button>
+  </div>
+</div>
+<script>
+(function(){
+  const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+  let layers=[], candle=false;
+  const BASE=[['Original','#f4d9a0'],['Chocolate','#7b4a2a'],['Matcha','#9ccc65'],['Strawberry','#ff8fab']];
+  const FILL=[['Cream','#fff8e7'],['Jam','#e03131'],['Mousse','#c8a2c8']];
+  const DECO=[['Cherry','#e03131'],['Blueberry','#4263eb'],['Mint','#51cf66']];
+
+  function make(id,arr,fn){ const box=document.getElementById(id);
+    arr.forEach(([t,c])=>{ const b=document.createElement('div'); b.className='opt'; b.textContent=t;
+      b.onclick=()=>{ fn(c); draw(); }; box.appendChild(b); }); }
+  make('base',BASE,c=>layers.push({type:'base',c}));
+  make('fill',FILL,c=>layers.push({type:'fill',c}));
+  make('deco',DECO,c=>layers.push({type:'deco',c}));
+
+  document.getElementById('candle').onclick=()=>{ candle=true; draw(); };
+  document.getElementById('undo').onclick=()=>{ if(candle){candle=false;} else if(layers.length){layers.pop();} draw(); };
+  document.getElementById('reset').onclick=()=>{ layers=[]; candle=false; draw(); };
+
+  function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const cx=cv.width/2;
+    let y=380;
+    const order=layers.slice().reverse(); // top drawn last
+    // draw from bottom up
+    layers.forEach(l=>{
+      const w=120+ (layers.indexOf(l))*0; // constant width
+      const width=130 - layers.indexOf(l)*4;
+      if(l.type==='base'){
+        ctx.fillStyle=l.c; ctx.beginPath(); ctx.roundRect(cx-width/2,y-40,width,42,8); ctx.fill();
+        ctx.fillStyle='rgba(0,0,0,.08)'; ctx.fillRect(cx-width/2,y-6,width,6);
+        y-=42;
+      } else if(l.type==='fill'){
+        ctx.fillStyle=l.c; ctx.beginPath(); ctx.roundRect(cx-width/2+6,y-26,width-12,28,10); ctx.fill();
+        y-=26;
+      } else if(l.type==='deco'){
+        ctx.fillStyle=l.c; ctx.beginPath(); ctx.arc(cx-30,y-6,7,0,6.28); ctx.arc(cx,y-10,7,0,6.28); ctx.arc(cx+30,y-6,7,0,6.28); ctx.fill();
+      }
+    });
+    if(candle){
+      const topY=y;
+      ctx.fillStyle='#fff'; ctx.fillRect(cx-3,topY-26,6,26);
+      // flame
+      const fl=6+Math.sin(Date.now()/120)*2;
+      ctx.fillStyle='#ffd43b'; ctx.beginPath(); ctx.ellipse(cx,topY-30,fl,fl+4,0,0,6.28); ctx.fill();
+      ctx.fillStyle='#ff922b'; ctx.beginPath(); ctx.ellipse(cx,topY-28,fl*0.5,fl*0.5+2,0,0,6.28); ctx.fill();
+    }
+    if(candle){ setTimeout(()=>{},0); }
+  }
+  // animate flame
+  function loop(){ if(candle){ draw(); } requestAnimationFrame(loop); }
+  draw(); loop();
+})();
+</script>
+</body>
+</html>

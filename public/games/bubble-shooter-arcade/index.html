@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>BUBBLE SHOOTER — ARCADE COLLECTION</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="arcade-cabinet">
+        <div class="neon-border"></div>
+        <div class="container">
+            <div class="game-area">
+                <div class="screen-bezel">
+                    <canvas id="gameCanvas"></canvas>
+                    <div class="crt-overlay"></div>
+                </div>
+                <div class="touch-controls">
+                    <button class="touch-btn" id="btn-left"><span class="arrow-left">↑</span></button>
+                    <button class="touch-btn action" id="btn-shoot">SHOOT</button>
+                    <button class="touch-btn" id="btn-right"><span class="arrow-right">↑</span></button>
+                </div>
+            </div>
+            <div class="info-panel">
+                <div class="section">
+                    <h3>STATUS</h3>
+                    <p>SCORE: <span id="score">0</span></p>
+                    <p>HIGH: <span id="highScore">0</span></p>
+                    <p>LEVEL: <span id="level">1</span></p>
+                    <p>SHOTS: <span id="shots">0</span></p>
+                </div>
+                <div class="section">
+                    <h3>NEXT</h3>
+                    <canvas id="nextBubble" width="120" height="120"></canvas>
+                </div>
+                <div class="section">
+                    <h3>CONTROLS</h3>
+                    <p><kbd><span class="arrow-left">↑</span></kbd> <kbd><span class="arrow-right">↑</span></kbd> : AIM</p>
+                    <p><kbd>Space</kbd> : SHOOT</p>
+                    <p><kbd>ESC</kbd> : PAUSE</p>
+                    <p><kbd>R</kbd> : RESTART</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="game.js?v=20"></script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Dress Up</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #e8f0ff; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; overflow: hidden; }
+  .wrap { display: flex; height: 100%; }
+  .stage { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+  canvas { max-height: 100%; touch-action: none; }
+  .panel { width: 240px; background: #fff; box-shadow: -4px 0 20px rgba(120,140,255,.2); padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .panel h2 { font-size: 16px; color: #4263eb; }
+  .cat { font-size: 12px; font-weight: 800; color: #5b6ef5; margin-top: 4px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt { padding: 8px 12px; border-radius: 12px; background: #eef2ff; font-size: 13px; font-weight: 700; color: #4263eb; cursor: pointer; border: 2px solid transparent; transition: all .12s; }
+  .opt:hover { background: #dfe6ff; }
+  .opt.active { border-color: #4263eb; background: #dbe4ff; }
+  .btn { padding: 12px; border: none; border-radius: 14px; background: #4263eb; color: #fff; font-weight: 800; cursor: pointer; }
+  .btn.alt { background: #ffd6e7; color: #c2255c; }
+  .btn:active { transform: scale(.97); }
+  .row { display: flex; gap: 8px; }
+  .row .btn { flex: 1; }
+  .title { position: absolute; top: 12px; left: 16px; font-size: 20px; font-weight: 900; color: #4263eb; text-shadow: 0 2px 6px rgba(255,255,255,.8); }
+  @media (max-width: 560px){ .panel{ width: 160px; } .opt{ padding:6px 9px; font-size:12px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="title">👗 Dress Up</div>
+    <canvas id="c" width="380" height="560"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Dress up the girl ✨</h2>
+    <div class="cat">💇 Hair</div>
+    <div class="opts" id="hair"></div>
+    <div class="cat">👚 Top</div>
+    <div class="opts" id="top"></div>
+    <div class="cat">👖 Bottom</div>
+    <div class="opts" id="bottom"></div>
+    <div class="cat">👜 Accessory</div>
+    <div class="opts" id="acc"></div>
+    <div class="row">
+      <button class="btn" id="random">🎲 Random</button>
+      <button class="btn alt" id="reset">Reset</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+  const S = { hair:0, top:0, bottom:0, acc:0 };
+  const HAIR=['Long Straight','Twin Tails','Bun','Short Hair','Braids'];
+  const TOP=['Red Tee','Blue Dress','Yellow Shirt','Pink Hoodie','White Wedding Dress'];
+  const BOTTOM=['Jeans','Skirt','Sweatpants','Long Dress','Pleated Skirt'];
+  const ACC=['None','Bow','Sunglasses','Necklace','Crown'];
+
+  function make(id,arr,key){
+    const box=document.getElementById(id);
+    arr.forEach((t,i)=>{ const b=document.createElement('div'); b.className='opt'+(S[key]===i?' active':'');
+      b.textContent=t; b.onclick=()=>{ S[key]=i; [...box.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); draw(); };
+      box.appendChild(b); });
+  }
+  make('hair',HAIR,'hair'); make('top',TOP,'top'); make('bottom',BOTTOM,'bottom'); make('acc',ACC,'acc');
+
+  function draw(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const cx=cv.width/2;
+    // legs
+    ctx.fillStyle='#ffe0c8';
+    drawLeg(cx-22,400, S.bottom); drawLeg(cx+22,400,S.bottom);
+    // body / bottom
+    drawBottom(cx,S.bottom);
+    drawTop(cx,S.top);
+    // arms
+    ctx.fillStyle='#ffe0c8';
+    ctx.fillRect(cx-58,250,16,120); ctx.fillRect(cx+42,250,16,120);
+    // head
+    const fg=ctx.createLinearGradient(cx,60,cx,230); fg.addColorStop(0,'#fff1e6'); fg.addColorStop(1,'#ffe0c8');
+    ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(cx,180,60,0,6.28); ctx.fill();
+    // face features
+    ctx.fillStyle='#3a2a22';
+    ctx.beginPath(); ctx.arc(cx-22,175,7,0,6.28); ctx.arc(cx+22,175,7,0,6.28); ctx.fill();
+    ctx.strokeStyle='#e8a0a0'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,200,12,0.1,3.04); ctx.stroke();
+    ctx.strokeStyle='#5a4032'; ctx.lineWidth=4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(cx-34,158); ctx.quadraticCurveTo(cx-22,150,cx-10,158); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+10,158); ctx.quadraticCurveTo(cx+22,150,cx+34,158); ctx.stroke();
+    // hair
+    drawHair(cx,S.hair);
+    // accessory
+    drawAcc(cx,S.acc);
+  }
+  function drawLeg(x,y,bottom){
+    ctx.fillStyle='#ffe0c8'; ctx.fillRect(x-9,y,18,120);
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x,y+122,11,7,0,0,6.28); ctx.fill();
+  }
+  function drawBottom(cx,b){
+    const colors=['#3b5bdb','#e8590c','#495057','#862e9c','#f783ac'];
+    ctx.fillStyle=colors[b];
+    if(b===1||b===3||b===4){ ctx.beginPath(); ctx.moveTo(cx-50,400); ctx.lineTo(cx+50,400); ctx.lineTo(cx+40,520); ctx.lineTo(cx-40,520); ctx.closePath(); ctx.fill(); }
+    else { ctx.fillRect(cx-45,400,38,120); ctx.fillRect(cx+7,400,38,120); }
+  }
+  function drawTop(cx,t){
+    const colors=['#e03131','#1c7ed6','#fcc419','#f06595','#f8f9fa'];
+    ctx.fillStyle=colors[t];
+    ctx.beginPath(); ctx.moveTo(cx-50,250); ctx.lineTo(cx+50,250); ctx.lineTo(cx+42,405); ctx.lineTo(cx-42,405); ctx.closePath(); ctx.fill();
+    if(t===4){ // wedding dress flair
+      ctx.fillStyle='#f1f3f5'; ctx.beginPath(); ctx.moveTo(cx-42,360); ctx.lineTo(cx+42,360); ctx.lineTo(cx+70,520); ctx.lineTo(cx-70,520); ctx.closePath(); ctx.fill();
+    }
+  }
+  function drawHair(cx,h){
+    const col='#5a3a2a';
+    ctx.fillStyle=col;
+    if(h===0){ ctx.beginPath(); ctx.ellipse(cx,150,68,90,0,0,6.28); ctx.fill(); ctx.beginPath(); ctx.arc(cx,180,62,0,6.28); ctx.fillStyle='#fff1e6'; ctx.fill(); }
+    if(h===1){ ctx.beginPath(); ctx.arc(cx-42,140,24,0,6.28); ctx.arc(cx+42,140,24,0,6.28); ctx.fill(); ctx.fillRect(cx-46,140,8,120); ctx.fillRect(cx+38,140,8,120); }
+    if(h===2){ ctx.beginPath(); ctx.arc(cx,110,26,0,6.28); ctx.fill(); ctx.fillRect(cx-4,90,8,40); }
+    if(h===3){ ctx.beginPath(); ctx.ellipse(cx,150,60,70,0,0,6.28); ctx.fill(); }
+    if(h===4){ ctx.beginPath(); ctx.arc(cx-30,150,20,0,6.28); ctx.arc(cx+30,150,20,0,6.28); ctx.fill(); ctx.fillRect(cx-50,150,14,140); ctx.fillRect(cx+36,150,14,140); }
+    // top fringe
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(cx,140,62,Math.PI,0); ctx.fill();
+  }
+  function drawAcc(cx,a){
+    if(a===0) return;
+    if(a===1){ ctx.fillStyle='#ff6b9d'; ctx.beginPath(); ctx.moveTo(cx,118); ctx.lineTo(cx-16,100); ctx.lineTo(cx-8,120); ctx.fill(); ctx.beginPath(); ctx.moveTo(cx,118); ctx.lineTo(cx+16,100); ctx.lineTo(cx+8,120); ctx.fill(); }
+    if(a===2){ ctx.fillStyle='#222'; ctx.fillRect(cx-34,168,20,10); ctx.fillRect(cx+14,168,20,10); ctx.fillRect(cx-14,168,28,8); }
+    if(a===3){ ctx.strokeStyle='#ffd43b'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(cx,210,18,0.2,2.94); ctx.stroke(); }
+    if(a===4){ ctx.fillStyle='#ffd43b'; ctx.beginPath(); ctx.moveTo(cx,118); ctx.lineTo(cx-22,98); ctx.lineTo(cx,108); ctx.lineTo(cx+22,98); ctx.lineTo(cx,118); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,108,4,0,6.28); ctx.fill(); }
+  }
+  document.getElementById('random').onclick=()=>{
+    S.hair=Math.floor(Math.random()*HAIR.length); S.top=Math.floor(Math.random()*TOP.length);
+    S.bottom=Math.floor(Math.random()*BOTTOM.length); S.acc=Math.floor(Math.random()*ACC.length);
+    sync(); draw();
+  };
+  document.getElementById('reset').onclick=()=>{ S.hair=0;S.top=0;S.bottom=0;S.acc=0; sync(); draw(); };
+  function sync(){ const ids=['hair','top','bottom','acc']; const keys=['hair','top','bottom','acc'];
+    ids.forEach((id,i)=>{ [...document.getElementById(id).children].forEach((x,j)=>x.classList.toggle('active',j===S[keys[i]])); }); }
+  draw();
+})();
+</script>
+</body>
+</html>

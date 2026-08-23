@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Memory Match</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% -10%,#ffe0d6,#fbfafc);color:#2c2733;
+    display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;
+  }
+  .wrap{width:100%;max-width:460px;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  h1{font-size:24px;font-weight:900;}
+  .pill{background:#fff;box-shadow:0 4px 14px -6px rgba(0,0,0,.2);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;}
+  .pill b{color:#ed3703;}
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .card{position:relative;aspect-ratio:1;border-radius:14px;cursor:pointer;transform-style:preserve-3d;transition:transform .35s;will-change:transform;}
+  .card.flip{transform:rotateY(180deg);}
+  .card .face{position:absolute;inset:0;backface-visibility:hidden;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:30px;}
+  .card .back{background:linear-gradient(145deg,#ff703d,#ed3703);box-shadow:inset 0 2px 6px rgba(255,255,255,.3);}
+  .card .back::after{content:"?";color:rgba(255,255,255,.9);font-weight:900;font-size:24px;}
+  .card .front{background:#fff;transform:rotateY(180deg);box-shadow:0 6px 16px -8px rgba(0,0,0,.3);font-size:34px;}
+  .card.matched{animation:match .4s ease;}
+  @keyframes match{0%{transform:rotateY(180deg) scale(1);}50%{transform:rotateY(180deg) scale(1.1);}100%{transform:rotateY(180deg) scale(1);}}
+  .overlay{position:fixed;inset:0;background:rgba(251,250,252,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;opacity:0;pointer-events:none;transition:opacity .3s;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay h2{font-size:32px;font-weight:900;color:#2c2733;}
+  .btn{background:#ed3703;color:#fff;border:none;border-radius:12px;padding:12px 26px;font-weight:800;font-size:16px;cursor:pointer;transition:transform .1s,background .2s;}
+  .btn:hover{background:#c42803;}
+  .btn:active{transform:scale(.95);}
+  .hint{margin-top:12px;text-align:center;font-size:12px;color:#7a7287;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🃏 Memory Match</h1>
+    <div class="pill">Moves <b id="moves">0</b></div>
+  </div>
+  <div class="board" id="board"></div>
+  <p class="hint">Flip two matching cards to clear them. Clear the board in as few moves as possible!</p>
+</div>
+<div class="overlay" id="ov">
+  <h2>🎉 All Matched!</h2>
+  <p id="ovp" style="color:#7a7287;font-size:15px;"></p>
+  <button class="btn" id="again">Play Again</button>
+</div>
+
+<script>
+(function(){
+  const board=document.getElementById('board'),movesEl=document.getElementById('moves'),ov=document.getElementById('ov'),ovp=document.getElementById('ovp'),again=document.getElementById('again');
+  const ICONS=['🍎','🍌','🍇','🍉','🍓','🍑','🥝','🍍'];
+  let deck=[],first=null,lock=false,moves=0,matched=0;
+
+  function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+  function build(){
+    board.innerHTML='';
+    deck=shuffle([...ICONS,...ICONS]);
+    deck.forEach((icon,idx)=>{
+      const c=document.createElement('div');
+      c.className='card';c.dataset.icon=icon;c.dataset.idx=idx;
+      c.innerHTML=`<div class="face back"></div><div class="face front">${icon}</div>`;
+      c.onclick=()=>flip(c);
+      board.appendChild(c);
+    });
+  }
+  function flip(c){
+    if(lock||c.classList.contains('flip')||c.classList.contains('matched'))return;
+    c.classList.add('flip');
+    if(!first){first=c;return;}
+    moves++;movesEl.textContent=moves;
+    if(first.dataset.icon===c.dataset.icon){
+      first.classList.add('matched');c.classList.add('matched');first=null;matched++;
+      if(matched===ICONS.length){setTimeout(win,400);}
+    }else{
+      lock=true;
+      setTimeout(()=>{first.classList.remove('flip');c.classList.remove('flip');first=null;lock=false;},650);
+    }
+  }
+  function win(){ovp.textContent='You used '+moves+' moves';ov.classList.add('show');}
+  function reset(){first=null;lock=false;moves=0;matched=0;movesEl.textContent=0;ov.classList.remove('show');build();}
+  again.onclick=reset;
+  reset();
+})();
+</script>
+</body>
+</html>

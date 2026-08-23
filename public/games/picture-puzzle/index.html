@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Picture Puzzle Game - Drag and snap pieces to complete a picture! Accessible and fun for everyone.">
+<title>Picture Puzzle</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+body {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+}
+#controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  z-index: 10;
+  pointer-events: none;
+}
+#controls > * {
+  pointer-events: auto;
+}
+#backBtn {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+  border-radius: 50%;
+  font-size: 24px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+#backBtn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateX(-5px);
+}
+#gameTitle {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+#resetBtn {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+  font-size: 15px;
+  font-weight: bold;
+  padding: 8px 20px;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background 0.2s;
+  letter-spacing: 0.5px;
+  min-height: 44px;
+  min-width: 44px;
+}
+#resetBtn:hover {
+  background: rgba(255,255,255,0.35);
+}
+#canvasWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  height: 100vh;
+  padding-top: 60px;
+}
+#gameCanvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+#gameCanvas.grabbing {
+  cursor: grabbing;
+}
+#message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 36px;
+  font-weight: bold;
+  text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+  white-space: nowrap;
+  text-align: center;
+}
+.keyboard-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  z-index: 10;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <a id="backBtn" href="index.html" title="Back to games" aria-label="Back to games">←</a>
+  <span id="gameTitle">🧩 Puzzle</span>
+  <button id="resetBtn" onclick="resetGame()">🔄 Reset</button>
+</div>
+
+<div id="canvasWrap">
+  <canvas id="gameCanvas"></canvas>
+  <div id="message" role="status" aria-live="polite"></div>
+</div>
+<div class="keyboard-hint" id="keyboardHint">Drag pieces to solve the puzzle! Tab to enter keyboard mode.</div>
+
+<script type="text/javascript" src="cordova.js"></script>
+<script src="js/game-engine.js"></script>
+<script src="js/accessibility-panel.js"></script>
+<script>
+  // ─── CONFIG ─────────────────────────────────────────────────────────────────
+  const COLS = 3, ROWS = 2, NUM_PIECES = 6;
+  const SNAP_DIST = 48;
+  const PREVIEW_MS = 2800;
+  const SCATTER_MS = 600;
+
+  // ─── STATE ──────────────────────────────────────────────────────────────────
+  let canvas, ctx;
+  let offscreens = {};
+  let currentImage = null;
+  let pieces = [];
+  let dragging = null;
+  let dragOffX = 0, dragOffY = 0;
+  let phase = 'loading';
+  let gridX = 0, gridY = 0, pieceW = 0, pieceH = 0;
+  let flashTimer = 0, flashCount = 0;
+  let imagesReady = 0;
+  let audioEngine;
+  let accessibilityPanel;
+  let keyboardMode = false;
+  let keyboardPieceIndex = -1;
+  const IMAGE_KEYS = ['dog', 'house', 'train'];
+
+  // ─── AUDIO ──────────────────────────────────────────────────────────────────
+  function initAudio() {
+    audioEngine = new GameEngine.AudioEngine();
+    audioEngine.init();
+  }
+
+  // ─── IMAGE DRAWING ──────────────────────────────────────────────────────────
+  function makeCanvas(w, h) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    return c;
+  }
+
+  function drawHouse(c) {
+    const ctx = c.getContext('2d');
+    const w = c.width, h = c.height;
+
+    // Sky
+    const sky = ctx.createLinearGradient(0, 0, 0, h * 0.65);
+    sky.addColorStop(0, '#87CEEB');
+    sky.addColorStop(1, '#B0E0FF');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h * 0.65);
+
+    // Ground
+    const grass = ctx.createLinearGradient(0, h * 0.65, 0, h);
+    grass.addColorStop(0, '#7CFC00');
+    grass.addColorStop(1, '#228B22');
+    ctx.fillStyle = grass;
+    ctx.fillRect(0, h * 0.65, w, h * 0.35);
+
+    // House body
+    ctx.fillStyle = '#F5F5DC';
+    ctx.fillRect(w * 0.3, h * 0.35, w * 0.4, h * 0.35);
+
+    // Roof
+    ctx.beginPath();
+    ctx.moveTo(w * 0.25, h * 0.35);
+    ctx.lineTo(w * 0.5, h * 0.15);
+    ctx.lineTo(w * 0.75, h * 0.35);
+    ctx.closePath();
+    ctx.fillStyle = '#8B4513';
+    ctx.fill();
+
+    // Door
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(w * 0.45, h * 0.55, w * 0.1, h * 0.15);
+    ctx.beginPath();
+    ctx.arc(w * 0.52, h * 0.62, w * 0.008, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+
+    // Windows
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(w * 0.35, h * 0.42, w * 0.08, h * 0.08);
+    ctx.fillRect(w * 0.57, h * 0.42, w * 0.08, h * 0.08);
+
+    // Window frames
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(w * 0.35, h * 0.42, w * 0.08, h * 0.08);
+    ctx.strokeRect(w * 0.57, h * 0.42, w * 0.08, h * 0.08);
+
+    // Sun
+    ctx.beginPath();
+    ctx.arc(w * 0.85, h * 0.15, w * 0.06, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+
+    // Tree
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(w * 0.12, h * 0.45, w * 0.04, h * 0.2);
+    ctx.beginPath();
+    ctx.arc(w * 0.14, h * 0.38, w * 0.08, 0, Math.PI * 2);
+    ctx.fillStyle = '#228B22';
+    ctx.fill();
+  }
+
+  function drawDog(c) {
+    const ctx = c.getContext('2d');
+    const w = c.width, h = c.height;
+
+    // Sky
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, w, h * 0.65);
+
+    // Ground
+    ctx.fillStyle = '#90EE90';
+    ctx.fillRect(0, h * 0.65, w, h * 0.35);
+
+    // Dog body
+    ctx.fillStyle = '#D2691E';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.55, w * 0.18, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dog head
+    ctx.beginPath();
+    ctx.arc(w * 0.35, h * 0.42, w * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = '#D2691E';
+    ctx.fill();
+
+    // Ears
+    ctx.beginPath();
+    ctx.ellipse(w * 0.28, h * 0.35, w * 0.04, h * 0.08, -0.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#8B4513';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(w * 0.42, h * 0.35, w * 0.04, h * 0.08, 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#8B4513';
+    ctx.fill();
+
+    // Eyes
+    ctx.beginPath();
+    ctx.arc(w * 0.32, h * 0.4, w * 0.02, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.38, h * 0.4, w * 0.02, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.32, h * 0.4, w * 0.01, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.38, h * 0.4, w * 0.01, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+
+    // Nose
+    ctx.beginPath();
+    ctx.arc(w * 0.35, h * 0.45, w * 0.015, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(w * 0.65, h * 0.52);
+    ctx.quadraticCurveTo(w * 0.75, h * 0.45, w * 0.72, h * 0.38);
+    ctx.strokeStyle = '#D2691E';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Legs
+    ctx.fillStyle = '#D2691E';
+    ctx.fillRect(w * 0.4, h * 0.62, w * 0.04, h * 0.1);
+    ctx.fillRect(w * 0.52, h * 0.62, w * 0.04, h * 0.1);
+    ctx.fillRect(w * 0.45, h * 0.65, w * 0.03, h * 0.08);
+    ctx.fillRect(w * 0.56, h * 0.65, w * 0.03, h * 0.08);
+
+    // Ball
+    ctx.beginPath();
+    ctx.arc(w * 0.7, h * 0.7, w * 0.05, 0, Math.PI * 2);
+    ctx.fillStyle = '#FF0000';
+    ctx.fill();
+  }
+
+  function drawTrain(c) {
+    const ctx = c.getContext('2d');
+    const w = c.width, h = c.height;
+
+    // Sky
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, w, h * 0.65);
+
+    // Ground
+    ctx.fillStyle = '#90EE90';
+    ctx.fillRect(0, h * 0.65, w, h * 0.35);
+
+    // Tracks
+    ctx.fillStyle = '#696969';
+    ctx.fillRect(0, h * 0.7, w, h * 0.02);
+    ctx.fillRect(0, h * 0.74, w, h * 0.02);
+
+    // Train engine
+    ctx.fillStyle = '#FF0000';
+    ctx.fillRect(w * 0.25, h * 0.45, w * 0.3, h * 0.22);
+
+    // Engine roof
+    ctx.beginPath();
+    ctx.moveTo(w * 0.23, h * 0.45);
+    ctx.lineTo(w * 0.3, h * 0.35);
+    ctx.lineTo(w * 0.5, h * 0.35);
+    ctx.lineTo(w * 0.57, h * 0.45);
+    ctx.closePath();
+    ctx.fillStyle = '#8B0000';
+    ctx.fill();
+
+    // Smokestack
+    ctx.fillStyle = 'black';
+    ctx.fillRect(w * 0.42, h * 0.28, w * 0.04, h * 0.07);
+
+    // Smoke
+    ctx.beginPath();
+    ctx.arc(w * 0.44, h * 0.22, w * 0.03, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200, 200, 200, 0.7)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.48, h * 0.18, w * 0.04, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200, 200, 200, 0.5)';
+    ctx.fill();
+
+    // Wheels
+    ctx.beginPath();
+    ctx.arc(w * 0.32, h * 0.7, w * 0.06, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.48, h * 0.7, w * 0.06, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+
+    // Window
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(w * 0.3, h * 0.5, w * 0.08, h * 0.06);
+
+    // Train car
+    ctx.fillStyle = '#0000FF';
+    ctx.fillRect(w * 0.58, h * 0.5, w * 0.22, h * 0.17);
+
+    // Car wheels
+    ctx.beginPath();
+    ctx.arc(w * 0.64, h * 0.7, w * 0.05, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.76, h * 0.7, w * 0.05, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+
+    // Connector
+    ctx.fillStyle = 'black';
+    ctx.fillRect(w * 0.55, h * 0.58, w * 0.03, h * 0.02);
+
+    // Windows on car
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(w * 0.62, h * 0.54, w * 0.05, h * 0.05);
+    ctx.fillRect(w * 0.7, h * 0.54, w * 0.05, h * 0.05);
+  }
+
+  // ─── GAME LOGIC ──────────────────────────────────────────────────────────────
+  class Piece {
+    constructor(row, col, imgKey) {
+      this.row = row;
+      this.col = col;
+      this.imgKey = imgKey;
+      this.x = 0;
+      this.y = 0;
+      this.correctX = 0;
+      this.correctY = 0;
+      this.snapX = 0;
+      this.snapY = 0;
+      this.snapped = false;
+      this.focused = false;
+    }
+
+    draw() {
+      if (this.snapped && phase !== 'preview') return;
+
+      // Keyboard focus indicator
+      if (this.focused && keyboardMode) {
+        ctx.save();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(this.x - 3, this.y - 3, pieceW + 6, pieceH + 6);
+        ctx.restore();
+      }
+
+      // Shadow for unsnapped pieces
+      if (!this.snapped) {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 4;
+        ctx.shadowOffsetY = 4;
+        ctx.drawImage(offscreens[this.imgKey], 
+          this.col * pieceW, this.row * pieceH, pieceW, pieceH,
+          this.x, this.y, pieceW, pieceH);
+        ctx.restore();
+      }
+
+      // Highlight border
+      if (this.focused) {
+        ctx.save();
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(this.x, this.y, pieceW, pieceH);
+        ctx.restore();
+      }
+
+      // Snap indicator
+      if (!this.snapped && phase === 'play' && this.isNearSnap()) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(this.snapX - 2, this.snapY - 2, pieceW + 4, pieceH + 4);
+        ctx.restore();
+      }
+    }
+
+    isNearSnap() {
+      const dx = this.x - this.snapX;
+      const dy = this.y - this.snapY;
+      return Math.sqrt(dx * dx + dy * dy) <= SNAP_DIST;
+    }
+
+    snap() {
+      this.x = this.snapX;
+      this.y = this.snapY;
+      this.snapped = true;
+      audioEngine.playSnap();
+    }
+  }
+
+  function makePieces() {
+    const key = IMAGE_KEYS[Math.floor(Math.random() * IMAGE_KEYS.length)];
+    currentImage = key;
+    pieces = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        pieces.push(new Piece(r, c, key));
+      }
+    }
+  }
+
+  function scatterPieces() {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const margin = Math.min(canvas.width, canvas.height) * 0.15;
+    pieces.forEach(p => {
+      if (p.snapped) return;
+      p.x = margin + Math.random() * (canvas.width - margin * 2 - pieceW);
+      p.y = margin + Math.random() * (canvas.height - margin * 2 - pieceH);
+      p.snapped = false;
+    });
+  }
+
+  function checkComplete() {
+    if (pieces.every(p => p.snapped)) {
+      phase = 'complete';
+      flashTimer = Date.now();
+      flashCount = 0;
+      showMessage('🎉 Great job!');
+      audioEngine.playSuccess();
+      audioEngine.announce('Puzzle complete! Great job!');
+      setTimeout(resetGame, 3000);
+    }
+  }
+
+  function showMessage(text) {
+    const el = document.getElementById('message');
+    el.textContent = text;
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 2000);
+  }
+
+  function resetGame() {
+    phase = 'loading';
+    document.getElementById('message').style.opacity = '0';
+    
+    // Build offscreen canvases for all images
+    imagesReady = 0;
+    const needed = IMAGE_KEYS.length;
+    const pw = pieceW = Math.floor(Math.min(canvas.width / COLS, (canvas.height - 100) / ROWS));
+    const ph = pieceH = pw;
+    
+    IMAGE_KEYS.forEach(key => {
+      const c = makeCanvas(COLS * pw, ROWS * ph);
+      offscreens[key] = c;
+      if (key === 'dog') drawDog(c);
+      else if (key === 'house') drawHouse(c);
+      else if (key === 'train') drawTrain(c);
+      imagesReady++;
+    });
+
+    if (imagesReady === needed) {
+      startPreview();
+    }
+  }
+
+  function startPreview() {
+    phase = 'preview';
+    
+    // Center the puzzle
+    gridX = (canvas.width - COLS * pieceW) / 2;
+    gridY = (canvas.height - ROWS * pieceH) / 2;
+    
+    pieces.forEach(p => {
+      p.x = gridX + p.col * pieceW;
+      p.y = gridY + p.row * pieceH;
+      p.correctX = p.x;
+      p.correctY = p.y;
+      p.snapX = p.x;
+      p.snapY = p.y;
+      p.snapped = true;
+    });
+
+    showMessage('Remember the picture!');
+    audioEngine.announce('Preview the picture. Remember where the pieces go!');
+    
+    setTimeout(() => {
+      phase = 'scatter';
+      pieces.forEach(p => p.snapped = false);
+      scatterPieces();
+      showMessage('Put it back together!');
+      audioEngine.announce('Now put the pieces back together!');
+      
+      setTimeout(() => {
+        phase = 'play';
+      }, SCATTER_MS);
+    }, PREVIEW_MS);
+  }
+
+  // ─── INPUT ──────────────────────────────────────────────────────────────────
+  function getPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if (e.touches && e.touches.length) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function onDown(e) {
+    if (phase !== 'play') return;
+    const p = getPointer(e);
+    // Reverse iterate to grab top piece first
+    for (let i = pieces.length - 1; i >= 0; i--) {
+      const piece = pieces[i];
+      if (piece.snapped) continue;
+      if (p.x >= piece.x && p.x <= piece.x + pieceW &&
+          p.y >= piece.y && p.y <= piece.y + pieceH) {
+        dragging = piece;
+        dragOffX = p.x - piece.x;
+        dragOffY = p.y - piece.y;
+        canvas.classList.add('grabbing');
+        return;
+      }
+    }
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const p = getPointer(e);
+    dragging.x = p.x - dragOffX;
+    dragging.y = p.y - dragOffY;
+  }
+
+  function onUp(e) {
+    if (!dragging) return;
+    canvas.classList.remove('grabbing');
+    
+    if (dragging.isNearSnap()) {
+      dragging.snap();
+      audioEngine.announce(`Piece snapped into place. ${getRemainingCount()} pieces remaining.`);
+    } else {
+      audioEngine.announce('Piece released. Not snapped.');
+    }
+    
+    dragging = null;
+    checkComplete();
+  }
+
+  function getRemainingCount() {
+    return pieces.filter(p => !p.snapped).length;
+  }
+
+  // Keyboard controls
+  function handleKeydown(e) {
+    if (phase !== 'play') return;
+    
+    switch(e.key) {
+      case 'Tab':
+        if (!keyboardMode) {
+          keyboardMode = true;
+          keyboardPieceIndex = 0;
+          pieces.forEach((p, i) => p.focused = (i === 0));
+          const unsnapped = pieces.filter(p => !p.snapped);
+          audioEngine.announce(`Keyboard mode enabled. ${unsnapped.length} pieces remaining. Tab to cycle, arrows to move, Enter to snap.`);
+          document.getElementById('keyboardHint').textContent = 'Keyboard mode! Tab to cycle pieces, arrows to move, Enter to snap';
+        } else {
+          const unsnapped = pieces.filter(p => !p.snapped);
+          if (unsnapped.length > 0) {
+            const currentIdx = unsnapped.indexOf(pieces[keyboardPieceIndex]);
+            const nextIdx = (currentIdx + 1) % unsnapped.length;
+            keyboardPieceIndex = pieces.indexOf(unsnapped[nextIdx]);
+            pieces.forEach((p, i) => p.focused = (i === keyboardPieceIndex));
+          }
+        }
+        e.preventDefault();
+        break;
+      case 'ArrowUp':
+        if (keyboardMode && keyboardPieceIndex >= 0) {
+          pieces[keyboardPieceIndex].y -= 10;
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowDown':
+        if (keyboardMode && keyboardPieceIndex >= 0) {
+          pieces[keyboardPieceIndex].y += 10;
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowLeft':
+        if (keyboardMode && keyboardPieceIndex >= 0) {
+          pieces[keyboardPieceIndex].x -= 10;
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowRight':
+        if (keyboardMode && keyboardPieceIndex >= 0) {
+          pieces[keyboardPieceIndex].x += 10;
+          e.preventDefault();
+        }
+        break;
+      case 'Enter':
+        if (keyboardMode && keyboardPieceIndex >= 0) {
+          const piece = pieces[keyboardPieceIndex];
+          if (piece.isNearSnap()) {
+            piece.snap();
+            audioEngine.announce(`Piece snapped! ${getRemainingCount()} remaining.`);
+            checkComplete();
+          } else {
+            audioEngine.announce('Not close enough to snap. Move piece closer to highlighted area.');
+          }
+        }
+        break;
+    }
+  }
+
+  // ─── RENDER ──────────────────────────────────────────────────────────────────
+  function draw() {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (phase === 'loading') return;
+
+    // Draw complete image background for snapped pieces
+    if (phase !== 'preview' && currentImage && offscreens[currentImage]) {
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      ctx.drawImage(offscreens[currentImage], gridX, gridY, COLS * pieceW, ROWS * pieceH);
+      ctx.restore();
+    }
+
+    // Draw grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(gridX + c * pieceW, gridY);
+      ctx.lineTo(gridX + c * pieceW, gridY + ROWS * pieceH);
+      ctx.stroke();
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath();
+      ctx.moveTo(gridX, gridY + r * pieceH);
+      ctx.lineTo(gridX + COLS * pieceW, gridY + r * pieceH);
+      ctx.stroke();
+    }
+
+    // Draw unsnapped pieces
+    pieces.forEach(p => p.draw());
+
+    // Flash effect on completion
+    if (phase === 'complete') {
+      const elapsed = Date.now() - flashTimer;
+      if (elapsed < 2000) {
+        const flash = (Math.floor(elapsed / 250) % 2 === 0);
+        if (flash) {
+          ctx.fillStyle = 'rgba(255,255,255,0.2)';
+          ctx.fillRect(gridX, gridY, COLS * pieceW, ROWS * pieceH);
+        }
+      }
+    }
+  }
+
+  // ─── INIT ──────────────────────────────────────────────────────────────────
+  function init() {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    
+    initAudio();
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('mousedown', onDown);
+    canvas.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    canvas.addEventListener('touchstart', onDown, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    document.addEventListener('keydown', handleKeydown);
+
+    // Initialize accessibility panel
+    accessibilityPanel = new AccessibilityPanel({
+      onChange: (settings) => {
+        audioEngine.setMuted(!settings.soundEnabled);
+      }
+    });
+
+    makePieces();
+    startPreview();
+
+    // Start render loop
+    function render() {
+      draw();
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+    audioEngine.announce('Picture Puzzle started. Drag pieces to complete the picture!');
+  }
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  document.addEventListener('deviceready', init, false);
+
+  if (!window.cordova) {
+    window.addEventListener('load', init);
+  }
+</script>
+</body>
+</html>

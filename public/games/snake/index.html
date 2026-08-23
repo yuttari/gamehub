@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Snake</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% 0%,#2b2440,#16131a);color:#fff;
+    display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;touch-action:none;
+  }
+  .wrap{width:100%;max-width:440px;text-align:center;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  h1{font-size:26px;font-weight:900;letter-spacing:-.5px;}
+  .pill{background:rgba(255,255,255,.12);border-radius:999px;padding:6px 14px;font-weight:800;font-size:15px;}
+  .pill b{color:#ff703d;}
+  .stage{position:relative;margin:0 auto;width:100%;aspect-ratio:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:18px;overflow:hidden;}
+  canvas{display:block;width:100%;height:100%;}
+  .overlay{position:absolute;inset:0;background:rgba(22,19,26,.86);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;opacity:0;pointer-events:none;transition:opacity .25s;border-radius:18px;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay h2{font-size:30px;font-weight:900;}
+  .overlay p{opacity:.7;font-size:14px;}
+  .btn{background:#ff4d12;color:#fff;border:none;border-radius:12px;padding:12px 26px;font-weight:800;font-size:16px;cursor:pointer;transition:transform .1s,background .2s;}
+  .btn:hover{background:#ed3703;}
+  .btn:active{transform:scale(.95);}
+  .hint{margin-top:12px;font-size:12px;opacity:.5;}
+  .touch{display:none;}
+  @media(hover:none){.touch{display:block;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🐍 Snake</h1>
+    <div class="pill">Score <b id="score">0</b></div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlay" id="ov">
+      <h2 id="ovt">Ready?</h2>
+      <p id="ovp">Tap to start. Use arrow keys or swipe to control.</p>
+      <button class="btn" id="start">Start Game</button>
+    </div>
+  </div>
+  <p class="hint">PC: Arrow keys / WASD　·　Mobile: Swipe screen</p>
+</div>
+
+<script>
+(function(){
+  const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  const stage=document.getElementById('stage'), ov=document.getElementById('ov'), ovt=document.getElementById('ovt'), ovp=document.getElementById('ovp'), startBtn=document.getElementById('start'), scoreEl=document.getElementById('score');
+  const GRID=18;
+  let cell=0, snake, dir, next, food, score, timer, running=false, dead=false;
+
+  function resize(){
+    const s=stage.clientWidth;
+    cv.width=s*devicePixelRatio; cv.height=s*devicePixelRatio;
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    cell=s/GRID;
+  }
+
+  function reset(){
+    snake=[{x:9,y:9},{x:8,y:9},{x:7,y:9}];
+    dir={x:1,y:0}; next={x:1,y:0};
+    score=0; scoreEl.textContent=0; dead=false;
+    placeFood();
+  }
+  function placeFood(){
+    while(true){
+      const f={x:(Math.random()*GRID)|0,y:(Math.random()*GRID)|0};
+      if(!snake.some(s=>s.x===f.x&&s.y===f.y)){food=f;break;}
+    }
+  }
+
+  function step(){
+    dir=next;
+    const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if(head.x<0||head.y<0||head.x>=GRID||head.y>=GRID||snake.some(s=>s.x===head.x&&s.y===head.y)){
+      return gameOver();
+    }
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){
+      score+=10; scoreEl.textContent=score; placeFood();
+    } else snake.pop();
+  }
+
+  function draw(){
+    const s=stage.clientWidth;
+    ctx.clearRect(0,0,s,s);
+    // grid dots
+    ctx.fillStyle='rgba(255,255,255,0.04)';
+    for(let i=0;i<GRID;i+=2)for(let j=0;j<GRID;j+=2)ctx.fillRect(i*cell,j*cell,cell,cell);
+    // food
+    ctx.fillStyle='#ff4d12';
+    roundRect(food.x*cell+cell*0.18,food.y*cell+cell*0.18,cell*0.64,cell*0.64,cell*0.2);
+    ctx.fill();
+    // snake
+    snake.forEach((p,i)=>{
+      const t=i/snake.length;
+      const g=Math.round(112+143*t);
+      ctx.fillStyle=`rgb(255,${g},61)`;
+      roundRect(p.x*cell+cell*0.08,p.y*cell+cell*0.08,cell*0.84,cell*0.84,cell*0.28);
+      ctx.fill();
+    });
+    // snake head eyes
+    const h=snake[0];
+    ctx.fillStyle='#16131a';
+    ctx.beginPath();ctx.arc(h.x*cell+cell*0.38,h.y*cell+cell*0.4,cell*0.1,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(h.x*cell+cell*0.62,h.y*cell+cell*0.4,cell*0.1,0,7);ctx.fill();
+  }
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+
+  function loop(){ if(!running)return; step(); draw(); }
+  function gameOver(){ running=false; dead=true; ovt.textContent='Game Over'; ovp.textContent='Score '+score+' · Play again?'; startBtn.textContent='Play Again'; ov.classList.add('show'); }
+
+  function start(){
+    reset(); ov.classList.remove('show'); running=true;
+    clearInterval(timer); timer=setInterval(loop,110);
+  }
+
+  function setDir(x,y){
+    if(x===-dir.x&&y===-dir.y)return; // can't reverse
+    if(x===dir.x&&y===dir.y)return;
+    next={x,y};
+  }
+
+  window.addEventListener('keydown',e=>{
+    const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};
+    if(m[e.key]){e.preventDefault();setDir(m[e.key][0],m[e.key][1]);}
+  });
+
+  let sx=0,sy=0;
+  stage.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  stage.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+    if(Math.abs(dx)>Math.abs(dy)) setDir(dx>0?1:-1,0); else setDir(0,dy>0?1:-1);
+  },{passive:true});
+
+  startBtn.onclick=start;
+  window.addEventListener('resize',()=>{resize();if(!running)draw();});
+  resize(); reset(); draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Music Shapes Game - Tap shapes to make music! Accessible and fun for everyone.">
+<title>Music Shapes</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+body {
+  background: #000000;
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+}
+#backBtn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+#backBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-5px);
+}
+#instructions {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+  z-index: 10;
+  text-align: right;
+}
+#gameCanvas {
+  display: block;
+  cursor: pointer;
+  touch-action: none;
+}
+.keyboard-hint {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  z-index: 10;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" id="backBtn" aria-label="Back to games" title="Back to games">←</a>
+<div id="instructions">Tap the shapes!</div>
+<canvas id="gameCanvas"></canvas>
+<div class="keyboard-hint" id="keyboardHint">Click or tap shapes to play music!</div>
+
+<script type="text/javascript" src="cordova.js"></script>
+<script src="js/game-engine.js"></script>
+<script src="js/accessibility-panel.js"></script>
+<script>
+  // Game state
+  let canvas, ctx;
+  let shapes = [];
+  let audioEngine;
+  let particleSystem;
+  let animator;
+  let accessibilityPanel;
+  let keyboardTargetIndex = -1;
+  let keyboardMode = false;
+
+  // Musical notes (C major scale)
+  const notes = [
+    261.63, // C4
+    293.66, // D4
+    329.63, // E4
+    349.23, // F4
+    392.00, // G4
+    440.00, // A4
+    493.88, // B4
+    523.25  // C5
+  ];
+
+  // High contrast colors
+  const colors = [
+    '#FF0000', // Red
+    '#00FF00', // Green
+    '#0000FF', // Blue
+    '#FFFF00', // Yellow
+    '#FF00FF', // Magenta
+    '#00FFFF', // Cyan
+    '#FF8800', // Orange
+    '#FFFFFF'  // White
+  ];
+
+  // Shape types
+  const shapeTypes = ['circle', 'square', 'triangle', 'star'];
+
+  // Shape class
+  class Shape {
+    constructor() {
+      this.size = 140; // Increased size for easier clicking
+      this.type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
+      this.color = colors[Math.floor(Math.random() * colors.length)];
+      this.note = notes[Math.floor(Math.random() * notes.length)];
+      this.alpha = 1;
+      this.scale = 1;
+      this.pulseSpeed = 0.02;
+      this.pulseScale = 0;
+      this.focused = false;
+      this.colorName = this.getColorName(this.color);
+      this.shapeName = this.type;
+      // x, y will be set by generateShapes to avoid overlap
+      this.x = 0;
+      this.y = 0;
+    }
+
+    getColorName(hex) {
+      const names = {
+        '#FF0000': 'red',
+        '#00FF00': 'green',
+        '#0000FF': 'blue',
+        '#FFFF00': 'yellow',
+        '#FF00FF': 'magenta',
+        '#00FFFF': 'cyan',
+        '#FF8800': 'orange',
+        '#FFFFFF': 'white'
+      };
+      return names[hex] || 'colored';
+    }
+
+    update() {
+      this.pulseScale = Math.sin(Date.now() * this.pulseSpeed) * 0.1;
+    }
+
+    draw() {
+      ctx.save();
+      ctx.globalAlpha = this.alpha;
+      ctx.translate(this.x, this.y);
+      ctx.scale(this.scale + this.pulseScale, this.scale + this.pulseScale);
+      
+      // Keyboard focus indicator
+      if (this.focused) {
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 2 + 10, 0, Math.PI * 2);
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+      }
+      
+      ctx.fillStyle = this.color;
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 4;
+      
+      switch(this.type) {
+        case 'circle':
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          break;
+        case 'square':
+          ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+          ctx.strokeRect(-this.size / 2, -this.size / 2, this.size, this.size);
+          break;
+        case 'triangle':
+          ctx.beginPath();
+          ctx.moveTo(0, -this.size / 2);
+          ctx.lineTo(this.size / 2, this.size / 2);
+          ctx.lineTo(-this.size / 2, this.size / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          break;
+        case 'star':
+          this.drawStar(0, 0, 5, this.size / 2, this.size / 4);
+          ctx.fill();
+          ctx.stroke();
+          break;
+      }
+      
+      ctx.restore();
+    }
+
+    drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+      let rot = Math.PI / 2 * 3;
+      let x = cx;
+      let y = cy;
+      const step = Math.PI / spikes;
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - outerRadius);
+      
+      for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+      }
+      
+      ctx.lineTo(cx, cy - outerRadius);
+      ctx.closePath();
+    }
+
+    contains(x, y) {
+      const dx = x - this.x;
+      const dy = y - this.y;
+      return Math.sqrt(dx * dx + dy * dy) <= this.size / 2 + 20;
+    }
+
+    activate() {
+      audioEngine.playTone({ frequency: this.note, duration: 0.3, type: 'sine', volume: 0.3 });
+      this.createParticles();
+      
+      // Animate shape
+      animator.pulse({
+        target: this,
+        scale: 1.5,
+        duration: 300,
+        onUpdate: (value) => {
+          this.scale = value;
+        }
+      });
+      
+      // Announce for screen readers
+      audioEngine.announce(`${this.colorName} ${this.shapeName} played a note`);
+    }
+
+    createParticles() {
+      const particleCount = 20;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3 + 2;
+        particleSystem.add(new GameEngine.Particle(this.x, this.y, this.color, {
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1,
+          decay: 0.02,
+          size: Math.random() * 8 + 4
+        }));
+      }
+    }
+  }
+
+  function generateShapes() {
+    shapes = [];
+    // Use a fixed 6-shape layout (2 rows x 3 columns) to prevent overlap
+    const count = 6;
+    const cols = 3;
+    const rows = 2;
+    const padding = 80;
+    
+    const availableWidth = canvas.width - (padding * 2);
+    const availableHeight = canvas.height - (padding * 2) - 100;
+    
+    const cellWidth = availableWidth / cols;
+    const cellHeight = availableHeight / rows;
+    
+    for (let i = 0; i < count; i++) {
+      const shape = new Shape();
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      
+      // Center the shape in its cell, with slight randomization to avoid perfect grids
+      const jitterX = (Math.random() - 0.5) * 20;
+      const jitterY = (Math.random() - 0.5) * 20;
+      
+      shape.x = padding + (col * cellWidth) + (cellWidth / 2) + jitterX;
+      shape.y = padding + 100 + (row * cellHeight) + (cellHeight / 2) + jitterY;
+      
+      shapes.push(shape);
+    }
+  }
+
+  function handleClick(e) {
+    audioEngine.resume(); // Ensure audio context is active
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    activateShapeAt(x, y);
+  }
+
+  function handleTouch(e) {
+    e.preventDefault();
+    audioEngine.resume(); // Ensure audio context is active
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    activateShapeAt(x, y);
+  }
+
+  function activateShapeAt(x, y) {
+    for (let shape of shapes) {
+      if (shape.contains(x, y)) {
+        shape.activate();
+        break;
+      }
+    }
+  }
+
+  // Keyboard controls
+  function handleKeydown(e) {
+    switch(e.key) {
+      case 'Tab':
+        if (!keyboardMode) {
+          keyboardMode = true;
+          if (shapes.length > 0) {
+            keyboardTargetIndex = 0;
+            shapes.forEach((s, i) => s.focused = (i === 0));
+            const shape = shapes[0];
+            audioEngine.resume(); // Ensure audio context is active
+            audioEngine.announce(`Keyboard mode enabled. ${shapes.length} shapes. Tab to navigate, Enter or Space to play. Current: ${shape.colorName} ${shape.shapeName}`);
+            document.getElementById('keyboardHint').textContent = 'Keyboard mode! Tab to navigate, Enter/Space to play';
+          }
+        } else {
+          keyboardTargetIndex = (keyboardTargetIndex + 1) % shapes.length;
+          shapes.forEach((s, i) => s.focused = (i === keyboardTargetIndex));
+          const shape = shapes[keyboardTargetIndex];
+          audioEngine.announce(`${shape.colorName} ${shape.shapeName}`);
+        }
+        e.preventDefault();
+        break;
+      case 'Enter':
+      case ' ':
+        if (keyboardMode && keyboardTargetIndex >= 0 && keyboardTargetIndex < shapes.length) {
+          e.preventDefault();
+          audioEngine.resume(); // Ensure audio context is active
+          shapes[keyboardTargetIndex].activate();
+        }
+        break;
+      case 'r':
+      case 'R':
+        generateShapes();
+        audioEngine.announce('Shapes regenerated');
+        break;
+    }
+  }
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function update() {
+    for (let shape of shapes) {
+      shape.update();
+    }
+    particleSystem.update();
+  }
+
+  function draw() {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let shape of shapes) {
+      shape.draw();
+    }
+
+    particleSystem.draw(ctx);
+  }
+
+  function init() {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    
+    audioEngine = new GameEngine.AudioEngine();
+    audioEngine.init();
+    particleSystem = new GameEngine.ParticleSystem();
+    animator = new GameEngine.Animator();
+    
+    resizeCanvas();
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      generateShapes();
+    });
+
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('touchstart', handleTouch, { passive: false });
+    document.addEventListener('keydown', handleKeydown);
+
+    // Initialize accessibility panel
+    accessibilityPanel = new AccessibilityPanel({
+      onChange: (settings) => {
+        audioEngine.setMuted(!settings.soundEnabled);
+      }
+    });
+
+    generateShapes();
+
+    // Start game loop
+    const gameLoop = new GameEngine.GameLoop(update, draw);
+    gameLoop.start();
+
+    audioEngine.announce('Music Shapes game started. Click or tap shapes to play musical notes!');
+  }
+
+  document.addEventListener('deviceready', init, false);
+
+  if (!window.cordova) {
+    window.addEventListener('load', init);
+  }
+</script>
+</body>
+</html>

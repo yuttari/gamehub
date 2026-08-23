@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Watermelon Slash</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1020; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  #game { display: block; width: 100%; height: 100%; background: radial-gradient(circle at 50% 30%, #1b2545 0%, #0b1020 70%); touch-action: none; }
+  .hud { position: fixed; top: 14px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 18px; pointer-events: none; color: #fff; font-weight: 800; }
+  .hud .score { font-size: 26px; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
+  .hud .lives { font-size: 24px; letter-spacing: 2px; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; background: rgba(8,12,28,.82); backdrop-filter: blur(4px); text-align: center; gap: 18px; }
+  .overlay h1 { font-size: 40px; background: linear-gradient(90deg,#ff7a59,#ffd166); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .overlay p { font-size: 16px; opacity: .85; max-width: 320px; line-height: 1.6; }
+  .btn { padding: 14px 38px; border: none; border-radius: 999px; font-size: 18px; font-weight: 800; color: #1b2545; background: linear-gradient(90deg,#ffd166,#ff7a59); cursor: pointer; box-shadow: 0 8px 24px rgba(255,122,89,.4); transition: transform .15s; }
+  .btn:active { transform: scale(.95); }
+  .hidden { display: none !important; }
+  .combo { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 34px; font-weight: 900; color: #ffd166; text-shadow: 0 2px 10px rgba(0,0,0,.6); pointer-events: none; opacity: 0; transition: opacity .2s; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="hud">
+  <div class="score">Score <span id="score">0</span></div>
+  <div class="lives" id="lives">❤️❤️❤️</div>
+</div>
+<div class="combo" id="combo"></div>
+<div class="overlay" id="start">
+  <h1>🍉 Watermelon Slash</h1>
+  <p>Swipe with your finger or mouse to slice the flying fruit!<br>Watch out for bombs 💣 — missing fruit costs a life.</p>
+  <button class="btn" id="startBtn">Start Slicing!</button>
+</div>
+<div class="overlay hidden" id="over">
+  <h1>Game Over</h1>
+  <p>Score this round: <b id="finalScore">0</b><br>Play again and beat your high score!</p>
+  <button class="btn" id="retryBtn">Play Again</button>
+</div>
+<script>
+(function(){
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  let W, H;
+  function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  resize(); addEventListener('resize', resize);
+
+  const scoreEl = document.getElementById('score');
+  const livesEl = document.getElementById('lives');
+  const comboEl = document.getElementById('combo');
+  const startOv = document.getElementById('start');
+  const overOv = document.getElementById('over');
+  const finalScore = document.getElementById('finalScore');
+
+  const FRUITS = [
+    {name:'🍉', r:42, c:'#e23b4e'},
+    {name:'🍎', r:30, c:'#e7402f'},
+    {name:'🍊', r:30, c:'#ff9f1c'},
+    {name:'🍋', r:27, c:'#ffd23f'},
+    {name:'🍓', r:24, c:'#ff5d8f'},
+    {name:'🍇', r:30, c:'#7b2cbf'},
+    {name:'🥝', r:26, c:'#80b918'},
+  ];
+  let fruits = [], halves = [], particles = [], slash = [];
+  let score = 0, lives = 3, running = false, combo = 0, comboTimer = 0, spawnTimer = 0;
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  function spawn(){
+    const bomb = Math.random() < 0.12;
+    const f = bomb ? {bomb:true, r:30, c:'#222'} : FRUITS[(Math.random()*FRUITS.length)|0];
+    const x = rand(W*0.15, W*0.85);
+    fruits.push({
+      x, y: H + 60, r: f.r, c: f.c, bomb: !!f.bomb,
+      vx: rand(-2.2,2.2), vy: rand(-15,-11), rot: rand(0,6.28), vr: rand(-0.1,0.1),
+      emoji: f.name, sliced:false
+    });
+  }
+
+  function pointer(e){
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
+  }
+  let last = null;
+  function down(e){ if(!running) return; last = pointer(e); slash = [last]; }
+  function move(e){
+    if(!running || !last) return;
+    const p = pointer(e);
+    slash.push(p);
+    if(slash.length > 12) slash.shift();
+    // cut fruits under the segment
+    for(const f of fruits){
+      if(f.sliced) continue;
+      const d = distToSeg(f.x, f.y, last.x, last.y, p.x, p.y);
+      if(d < f.r){
+        f.sliced = true;
+        if(f.bomb){ loseLife(); explode(f); }
+        else { sliceFruit(f); }
+      }
+    }
+    last = p;
+    e.preventDefault();
+  }
+  function up(){ last = null; setTimeout(()=>slash=[],120); }
+
+  function distToSeg(px,py,x1,y1,x2,y2){
+    const dx=x2-x1, dy=y2-y1; const l2=dx*dx+dy*dy;
+    if(l2===0) return Math.hypot(px-x1,py-y1);
+    let t=((px-x1)*dx+(py-y1)*dy)/l2; t=Math.max(0,Math.min(1,t));
+    return Math.hypot(px-(x1+t*dx), py-(y1+t*dy));
+  }
+
+  function sliceFruit(f){
+    combo++; comboTimer = 60;
+    const gain = 10 + (combo>2 ? (combo-2)*5 : 0);
+    score += gain; scoreEl.textContent = score;
+    if(combo>2){ showCombo('Combo x'+combo+'! +'+gain); }
+    // halves
+    for(let s=-1;s<=1;s+=2){
+      halves.push({x:f.x,y:f.y,vx:f.vx+s*2,vy:f.vy*0.5, r:f.r, c:f.c, rot:f.rot, vr:f.vr, side:s});
+    }
+    for(let i=0;i<10;i++){
+      particles.push({x:f.x,y:f.y,vx:rand(-4,4),vy:rand(-5,1),r:rand(2,5),c:f.c,life:30});
+    }
+  }
+  function explode(f){
+    for(let i=0;i<24;i++){
+      particles.push({x:f.x,y:f.y,vx:rand(-7,7),vy:rand(-7,3),r:rand(2,6),c:'#ff5d2e',life:40});
+    }
+  }
+  function loseLife(){
+    lives--; livesEl.textContent = '❤️'.repeat(Math.max(0,lives)) + '🖤'.repeat(3-Math.max(0,lives));
+    if(lives<=0) gameOver();
+  }
+  function showCombo(txt){
+    comboEl.textContent = txt; comboEl.style.opacity = 1;
+    setTimeout(()=>comboEl.style.opacity=0, 500);
+  }
+
+  function update(){
+    if(!running) return;
+    spawnTimer--;
+    if(spawnTimer<=0){ spawn(); if(Math.random()<0.4) spawn(); spawnTimer = rand(35,60); }
+    if(comboTimer>0){ comboTimer--; if(comboTimer===0) combo=0; }
+
+    for(const f of fruits){
+      f.vy += 0.45; f.x += f.vx; f.y += f.vy; f.rot += f.vr;
+    }
+    // remove offscreen / missed (non-bomb)
+    fruits = fruits.filter(f=>{
+      if(f.sliced) return false;
+      if(f.y > H + 80 && f.vy > 0){
+        if(!f.bomb){ loseLife(); }
+        return false;
+      }
+      return true;
+    });
+    for(const h of halves){ h.vy += 0.5; h.x += h.vx; h.y += h.vy; h.rot += h.vr; }
+    halves = halves.filter(h=> h.y < H + 60);
+    for(const p of particles){ p.vy += 0.3; p.x += p.vx; p.y += p.vy; p.life--; }
+    particles = particles.filter(p=> p.life>0);
+  }
+
+  function drawFruit(f){
+    ctx.save(); ctx.translate(f.x,f.y); ctx.rotate(f.rot);
+    if(f.bomb){
+      ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(0,0,f.r,0,6.28); ctx.fill();
+      ctx.fillStyle='#444'; ctx.fillRect(-3,-f.r-6,6,8);
+      ctx.fillStyle='#7a2e0e'; ctx.fillRect(-3,-f.r-12,6,6);
+      ctx.fillStyle='#fff'; ctx.font='18px serif'; ctx.textAlign='center'; ctx.fillText('💣',0,6);
+    } else {
+      const g = ctx.createRadialGradient(-f.r*0.3,-f.r*0.3,2,0,0,f.r);
+      g.addColorStop(0,'#ffffff'); g.addColorStop(0.25,f.c); g.addColorStop(1,shade(f.c,-30));
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,f.r,0,6.28); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(-f.r*0.35,-f.r*0.35,f.r*0.28,0,6.28); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawHalf(h){
+    ctx.save(); ctx.translate(h.x,h.y); ctx.rotate(h.rot);
+    ctx.beginPath(); ctx.arc(0,0,h.r, h.side>0?-1.57:1.57, h.side>0?1.57:4.71);
+    ctx.closePath();
+    ctx.fillStyle = h.c; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.restore();
+  }
+  function shade(hex,amt){
+    const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
+    r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+    return '#'+((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    for(const f of fruits) drawFruit(f);
+    for(const h of halves) drawHalf(h);
+    for(const p of particles){
+      ctx.globalAlpha = p.life/30; ctx.fillStyle=p.c;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+    }
+    if(slash.length>1){
+      ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=4; ctx.lineCap='round';
+      ctx.shadowColor='#ffd166'; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.moveTo(slash[0].x,slash[0].y);
+      for(const s of slash) ctx.lineTo(s.x,s.y); ctx.stroke(); ctx.shadowBlur=0;
+    }
+  }
+
+  function loop(){ update(); render(); requestAnimationFrame(loop); }
+
+  function start(){
+    fruits=[]; halves=[]; particles=[]; score=0; lives=3; combo=0; spawnTimer=0;
+    scoreEl.textContent='0'; livesEl.textContent='❤️❤️❤️';
+    running=true; startOv.classList.add('hidden'); overOv.classList.add('hidden');
+  }
+  function gameOver(){ running=false; finalScore.textContent=score; overOv.classList.remove('hidden'); }
+
+  document.getElementById('startBtn').onclick = start;
+  document.getElementById('retryBtn').onclick = start;
+  cv.addEventListener('mousedown',down); cv.addEventListener('mousemove',move); addEventListener('mouseup',up);
+  cv.addEventListener('touchstart',down,{passive:false}); cv.addEventListener('touchmove',move,{passive:false}); addEventListener('touchend',up);
+  loop();
+})();
+</script>
+</body>
+</html>

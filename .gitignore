@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# next.js build / static export output
+.next/
+out/
+
+# env (keep .env.example tracked, ignore local secrets)
+.env*.local
+
+# project data / memory (do not publish)
+.workbuddy/
+
+# reference source for the import script (not needed to build/deploy the site)
+_src/
+
+# logs
+*.log
+npm-debug.log*

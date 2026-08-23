@@ -1,0 +1,572 @@
+/* Import retro pixel font */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+/* Global styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Press Start 2P', cursive;
+    background: #0a0a0f;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 10px;
+    position: relative;
+    overflow: hidden;
+    touch-action: none;
+    overscroll-behavior: none;
+}
+
+/* Hide scrollbars but keep scrollable */
+body::-webkit-scrollbar,
+.arcade-cabinet::-webkit-scrollbar,
+.container::-webkit-scrollbar {
+    display: none;
+}
+
+body, .arcade-cabinet, .container {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Dark retro background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+    z-index: -2;
+}
+
+/* Stegosaurus pixel background */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('stegosaurus.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+    opacity: 0.75;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* ===== Arcade Cabinet Frame ===== */
+.arcade-cabinet {
+    background: linear-gradient(145deg, #2a2a3e 0%, #1a1a2e 50%, #0f0f1a 100%);
+    padding: 30px 40px 40px 40px;
+    border-radius: 20px;
+    position: relative;
+    box-shadow: 
+        0 0 0 8px #1a1a2e,
+        0 0 0 12px #333,
+        0 20px 60px rgba(0, 0, 0, 0.8),
+        inset 0 0 100px rgba(0, 0, 0, 0.5);
+    max-height: 90vh;
+    min-height: 780px;
+}
+
+/* Cabinet top decoration */
+.arcade-cabinet::before {
+    content: '★ TETRIS ★';
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    color: #ff00ff;
+    text-shadow: 
+        0 0 10px #ff00ff,
+        0 0 20px #ff00ff,
+        0 0 30px #ff00ff;
+    letter-spacing: 3px;
+}
+
+/* Neon border glow effect */
+.neon-border {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
+    border-radius: 22px 22px 0 0;
+    z-index: -1;
+    opacity: 0.6;
+    animation: neon-pulse 3s ease-in-out infinite;
+}
+
+@keyframes neon-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+}
+
+.container {
+    display: flex;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.98);
+    padding: 15px;
+    border-radius: 10px;
+    border: 4px solid #222;
+    position: relative;
+    box-shadow: 
+        inset 0 0 100px rgba(0, 0, 0, 0.8),
+        0 0 30px rgba(0, 255, 255, 0.2);
+}
+
+/* Screen bezel (plastic feel) */
+.screen-bezel {
+    background: linear-gradient(145deg, #3a3a4e 0%, #1a1a2e 100%);
+    padding: 15px;
+    border-radius: 20px;
+    box-shadow: 
+        inset 0 0 20px rgba(0, 0, 0, 0.5),
+        0 5px 15px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+/* Screen glass reflection */
+.screen-bezel::before {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    right: 15px;
+    height: 30%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 100%
+    );
+    border-radius: 10px 10px 0 0;
+    pointer-events: none;
+    z-index: 20;
+}
+
+/* Game area */
+.game-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+/* ===== CRT Screen Effects ===== */
+#tetris {
+    border-radius: 10px;
+    background: #000;
+    box-shadow: 
+        inset 0 0 80px rgba(0, 255, 255, 0.1),
+        0 0 30px rgba(0, 255, 255, 0.3);
+    position: relative;
+    display: block;
+}
+
+/* CRT scanlines */
+.crt-overlay {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    right: 15px;
+    bottom: 15px;
+    pointer-events: none;
+    z-index: 10;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.crt-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.25) 0px,
+        rgba(0, 0, 0, 0.25) 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    animation: scanlines 8s linear infinite;
+}
+
+/* Scanline movement effect */
+@keyframes scanlines {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(4px); }
+}
+
+/* CRT screen curvature */
+.crt-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        transparent 70%,
+        rgba(0, 0, 0, 0.4) 100%
+    );
+    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.5);
+}
+
+/* Screen flicker */
+.screen-flicker {
+    animation: flicker 0.12s infinite;
+}
+
+@keyframes flicker {
+    0% { opacity: 0.97; }
+    50% { opacity: 1; }
+    100% { opacity: 0.98; }
+}
+
+/* ===== Side Info Panel ===== */
+.info-panel {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+@keyframes title-glow {
+    from { 
+        text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+        color: #00ffff;
+    }
+    to { 
+        text-shadow: 0 0 20px #00ffff, 0 0 30px #00ffff, 0 0 40px #00ffff;
+        color: #80ffff;
+    }
+}
+
+/* Info section */
+.section {
+    background: linear-gradient(145deg, rgba(0, 20, 40, 0.95) 0%, rgba(0, 10, 20, 0.95) 100%);
+    padding: 15px;
+    border-radius: 8px;
+    border: 2px solid #00ffff;
+    box-shadow: 
+        0 0 15px rgba(0, 255, 255, 0.2),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+.section h3 {
+    color: #ff00ff;
+    font-size: 11px;
+    margin-bottom: 12px;
+    border-bottom: 2px solid #ff00ff;
+    padding-bottom: 8px;
+    text-shadow: 0 0 10px #ff00ff;
+    letter-spacing: 2px;
+}
+
+.section p {
+    color: #00ff00;
+    margin: 10px 0;
+    font-size: 9px;
+    line-height: 1.8;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+}
+
+.section span {
+    font-weight: bold;
+    color: #ffff00;
+    font-size: 14px;
+    text-shadow: 
+        0 0 5px #ffff00,
+        0 0 10px #ffff00;
+}
+
+/* Next piece preview */
+#nextPiece {
+    background: #000;
+    border: 3px solid #00ffff;
+    border-radius: 8px;
+    display: block;
+    margin: 10px auto;
+    box-shadow: 
+        0 0 15px rgba(0, 255, 255, 0.4),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+/* ===== Start Screen Text Blink ===== */
+.blink-text {
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 768px) {
+    .arcade-cabinet {
+        padding: 30px 20px 40px 20px;
+    }
+    
+    .container {
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .info-panel {
+        width: 100%;
+        max-width: 300px;
+    }
+    
+    .info-panel h2 {
+        font-size: 14px;
+    }
+    
+    .section h3 {
+        font-size: 10px;
+    }
+    
+    .section p {
+        font-size: 8px;
+    }
+}
+
+/* Game over effect */
+.game-over {
+    animation: game-over-flash 0.5s ease-in-out infinite;
+}
+
+@keyframes game-over-flash {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(0.5); }
+}
+
+/* Keyboard button styles for controls */
+.section p kbd {
+    background: linear-gradient(145deg, #3a3a4e 0%, #2a2a3e 100%);
+    border: 2px solid #00ffff;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #00ffff;
+    box-shadow: 
+        0 0 5px rgba(0, 255, 255, 0.5),
+        0 3px 0 #1a1a2e;
+    margin: 0 2px;
+    display: inline-block;
+}
+
+/* ===== Touch Controls (Mobile) ===== */
+.touch-controls {
+    display: none; /* Hidden by default on desktop */
+    width: 100%;
+    padding: 15px 10px;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+}
+
+.touch-btn {
+    width: 75px;
+    height: 60px;
+    background: linear-gradient(145deg, #2a2a4e 0%, #1a1a3e 100%);
+    border: 2px solid #00ffff;
+    border-radius: 10px;
+    color: #00ffff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 14px;
+    text-shadow: 0 0 10px #00ffff;
+    box-shadow: 
+        0 0 15px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.section span.arrow-left {
+    display: inline-block;
+    transform: rotate(-90deg);
+    color: #00ffff;
+    font-size: 8px;
+    text-shadow: inherit;
+}
+
+.section span.arrow-right {
+    display: inline-block;
+    transform: rotate(90deg);
+    color: #00ffff;
+    font-size: 8px;
+    text-shadow: inherit;
+}
+
+/* Touch control arrows */
+.touch-btn .arrow-left {
+    display: inline-block;
+    transform: rotate(-90deg);
+}
+
+.touch-btn .arrow-right {
+    display: inline-block;
+    transform: rotate(90deg);
+}
+
+.touch-btn:active {
+    background: linear-gradient(145deg, #00ffff 0%, #0088cc 100%);
+    color: #000;
+    box-shadow: 
+        0 0 25px rgba(0, 255, 255, 0.8),
+        inset 0 0 20px rgba(0, 0, 0, 0.2);
+    transform: scale(0.95);
+}
+
+.touch-btn.action {
+    width: 75px;
+    height: 60px;
+    font-size: 10px;
+    border-color: #ff00ff;
+    color: #ff00ff;
+    text-shadow: 0 0 10px #ff00ff;
+    box-shadow: 
+        0 0 15px rgba(255, 0, 255, 0.3),
+        inset 0 0 20px rgba(255, 0, 255, 0.1);
+}
+
+.touch-btn.action:active {
+    background: linear-gradient(145deg, #ff00ff 0%, #cc00cc 100%);
+    color: #fff;
+    box-shadow: 
+        0 0 25px rgba(255, 0, 255, 0.8);
+}
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 768px) {
+    body {
+        padding: 5px;
+        touch-action: none;
+        overscroll-behavior: none;
+    }
+    
+    .arcade-cabinet {
+        padding: 10px 10px 5px 10px;
+        min-height: auto;
+        max-height: 100vh;
+        width: 100%;
+    }
+    
+    .arcade-cabinet::before {
+        display: none; /* Hide title on mobile to save space */
+    }
+    
+    .container {
+        flex-direction: column;
+        align-items: center;
+        padding: 8px;
+        gap: 5px;
+    }
+
+    /* Resize canvas for mobile */
+    #tetris {
+        width: 240px;
+        height: 480px;
+    }
+    
+    .screen-bezel {
+        padding: 8px;
+    }
+    
+    .crt-overlay {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+    }
+
+    /* Show touch controls */
+    .touch-controls {
+        display: flex;
+        padding: 10px 5px;
+        gap: 8px;
+    }
+    
+    .touch-btn {
+        width: 60px;
+        height: 50px;
+    }
+    
+    .touch-btn .arrow {
+        font-size: 20px;
+    }
+    
+    .touch-btn.action {
+        width: 60px;
+        height: 50px;
+        font-size: 9px;
+    }
+    
+    /* Reposition info panel for portrait - move to top */
+    .info-panel {
+        order: -1;
+        width: 100%;
+        max-width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        gap: 8px;
+        margin-bottom: 5px;
+    }
+    
+    .info-panel .section {
+        flex: 1;
+        min-width: 80px;
+        padding: 8px;
+    }
+    
+    .info-panel .section:nth-child(3) {
+        display: none; /* Hide keyboard controls section on mobile */
+    }
+    
+    .section h3 {
+        font-size: 7px;
+        margin-bottom: 5px;
+        padding-bottom: 3px;
+    }
+    
+    .section p {
+        font-size: 6px;
+        margin: 3px 0;
+    }
+    
+    .section span {
+        font-size: 8px;
+    }
+    
+    #nextPiece {
+        width: 50px;
+        height: 50px;
+        margin: 3px auto;
+    }
+}

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Color Splash - Tap anywhere to paint with bold colors and music! Perfect for young players. Accessible and fun for everyone.">
+<title>Color Splash</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+  background: #000000;
+}
+#gameCanvas {
+  display: block;
+  cursor: pointer;
+  touch-action: none;
+}
+#header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  z-index: 10;
+  pointer-events: none;
+}
+#header > * {
+  pointer-events: auto;
+}
+#backBtn {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+  border-radius: 50%;
+  font-size: 24px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+#backBtn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateX(-5px);
+}
+#gameTitle {
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+#controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+#clearBtn {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px 16px;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  min-width: 44px;
+}
+#clearBtn:hover {
+  background: rgba(255,255,255,0.35);
+  transform: scale(1.05);
+}
+#settingsBtn {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+#settingsBtn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: rotate(90deg);
+}
+/* Settings Modal */
+#settingsModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+#settingsModal.active {
+  display: flex;
+}
+.modal-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  max-width: 450px;
+  width: 90%;
+  color: white;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 25px;
+  text-align: center;
+}
+.setting-group {
+  margin-bottom: 20px;
+}
+.setting-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+.setting-value {
+  background: rgba(255,255,255,0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: bold;
+}
+input[type="range"] {
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.3);
+  outline: none;
+  -webkit-appearance: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  border: none;
+}
+.color-preview {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.color-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.color-swatch:hover {
+  transform: scale(1.2);
+}
+.color-swatch.selected {
+  border-color: #FFD700;
+  border-width: 4px;
+}
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+.btn {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+}
+.btn-primary {
+  background: white;
+  color: #667eea;
+}
+.btn-secondary {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: 2px solid rgba(255,255,255,0.5);
+}
+.keyboard-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  z-index: 10;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <a id="backBtn" href="index.html" title="Back to games" aria-label="Back to games">&#8592;</a>
+  <span id="gameTitle">&#127912; Color Splash</span>
+  <div id="controls">
+    <button id="clearBtn" aria-label="Clear canvas">&#128465; Clear</button>
+    <button id="settingsBtn" aria-label="Game settings" title="Game settings">&#9881;&#65039;</button>
+  </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+<div class="keyboard-hint" id="keyboardHint">Click or tap anywhere to paint! Press C to clear.</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" role="dialog" aria-label="Game settings">
+  <div class="modal-content">
+    <div class="modal-header">&#9881;&#65039; Color Splash Settings</div>
+    
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Background</span>
+        <span class="setting-value" id="bgValue">Black</span>
+      </div>
+      <div class="color-preview" id="bgOptions">
+        <div class="color-swatch selected" data-bg="#000000" style="background: #000000;" title="Black" role="button" tabindex="0" aria-label="Black background"></div>
+        <div class="color-swatch" data-bg="#FFFFFF" style="background: #FFFFFF;" title="White" role="button" tabindex="0" aria-label="White background"></div>
+        <div class="color-swatch" data-bg="#FFFF00" style="background: #FFFF00;" title="Yellow" role="button" tabindex="0" aria-label="Yellow background"></div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Splash Size</span>
+        <span class="setting-value" id="sizeValue">Large</span>
+      </div>
+      <input type="range" id="sizeSlider" min="1" max="5" value="4" step="1"
+        aria-label="Splash size" aria-valuemin="1" aria-valuemax="5" aria-valuenow="4">
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Expansion Speed</span>
+        <span class="setting-value" id="speedValue">Slow</span>
+      </div>
+      <input type="range" id="speedSlider" min="1" max="5" value="2" step="1"
+        aria-label="Expansion speed" aria-valuemin="1" aria-valuemax="5" aria-valuenow="2">
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">
+        <span>Auto Clear</span>
+        <span class="setting-value" id="clearValue">Never</span>
+      </div>
+      <input type="range" id="clearSlider" min="0" max="3" value="0" step="1"
+        aria-label="Auto clear timer" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0">
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="applyBtn">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript" src="cordova.js"></script>
+<script src="js/game-engine.js"></script>
+<script src="js/accessibility-panel.js"></script>
+<script>
+// ─── CONFIGURATION ──────────────────────────────────────────────────────────
+const COLORS = {
+  red:    { fill: '#FF0000', outline: '#000000', note: 261.63 }, // C4
+  yellow: { fill: '#FFFF00', outline: '#000000', note: 293.66 }, // D4
+  blue:   { fill: '#0000FF', outline: '#FFFFFF', note: 329.63 }, // E4
+  green:  { fill: '#00FF00', outline: '#000000', note: 392.00 }, // G4
+  white:  { fill: '#FFFFFF', outline: '#000000', note: 523.25 }, // C5
+  black:  { fill: '#000000', outline: '#FFFFFF', note: 440.00 }, // A4
+};
+
+const COLOR_KEYS = ['red', 'yellow', 'blue', 'green', 'white', 'black'];
+
+const BG_LABELS = { '#000000': 'Black', '#FFFFFF': 'White', '#FFFF00': 'Yellow' };
+const SIZE_LABELS = ['Tiny', 'Small', 'Medium', 'Large', 'Huge'];
+const SPEED_LABELS = ['Very Slow', 'Slow', 'Medium', 'Fast', 'Very Fast'];
+const CLEAR_LABELS = ['Never', '5 seconds', '15 seconds', '30 seconds'];
+const CLEAR_TIMES = [null, 5000, 15000, 30000];
+
+// ─── GAME STATE ─────────────────────────────────────────────────────────────
+let canvas, ctx;
+let splashes = [];
+let audioEngine, accessibilityPanel;
+let gameLoop;
+
+let settings = {
+  background: '#000000',
+  splashSize: 4,
+  speed: 2,
+  autoClear: 0,
+};
+
+let tempSettings = { ...settings };
+let colorIndex = 0;
+
+// ─── CLASSES ────────────────────────────────────────────────────────────────
+class Splash {
+  constructor(x, y, colorKey, size, speed) {
+    this.x = x;
+    this.y = y;
+    this.color = COLORS[colorKey];
+    this.maxRadius = size;
+    this.expansionSpeed = speed;
+    this.currentRadius = 0;
+    this.outlineWidth = 4;
+    this.alpha = 1;
+    this.growthPhase = true;
+    this.createdAt = Date.now();
+  }
+
+  update() {
+    if (this.growthPhase) {
+      this.currentRadius += this.expansionSpeed;
+      if (this.currentRadius >= this.maxRadius) {
+        this.currentRadius = this.maxRadius;
+        this.growthPhase = false;
+      }
+    }
+    
+    // Auto-fade if auto-clear is enabled
+    const clearTime = CLEAR_TIMES[settings.autoClear];
+    if (clearTime) {
+      const elapsed = Date.now() - this.createdAt;
+      if (elapsed > clearTime) {
+        this.alpha -= 0.02;
+      }
+    }
+  }
+
+  draw(ctx) {
+    if (this.alpha <= 0) return;
+    
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    
+    // Draw filled circle
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color.fill;
+    ctx.fill();
+    
+    // Draw outline (thick for high contrast)
+    ctx.lineWidth = this.outlineWidth;
+    ctx.strokeStyle = this.color.outline;
+    ctx.stroke();
+    
+    // Inner highlight ring for extra visibility
+    if (this.currentRadius > 20) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.currentRadius * 0.7, 0, Math.PI * 2);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = this.color.outline;
+      ctx.globalAlpha = this.alpha * 0.5;
+      ctx.stroke();
+    }
+    
+    ctx.restore();
+  }
+
+  isDead() {
+    return this.alpha <= 0;
+  }
+}
+
+// ─── AUDIO ──────────────────────────────────────────────────────────────────
+function playSplashSound(colorKey) {
+  const note = COLORS[colorKey].note;
+  audioEngine.resume();
+  audioEngine.playTone({
+    frequency: note,
+    duration: 0.4,
+    type: 'sine',
+    volume: 0.25,
+    ramp: true
+  });
+}
+
+function playClearSound() {
+  audioEngine.resume();
+  // Descending arpeggio
+  const notes = [523.25, 440.00, 349.23, 261.63];
+  notes.forEach((freq, i) => {
+    setTimeout(() => {
+      audioEngine.playTone({ frequency: freq, duration: 0.15, volume: 0.2 });
+    }, i * 100);
+  });
+}
+
+// ─── INPUT HANDLING ────────────────────────────────────────────────────────
+function handleClick(e) {
+  audioEngine.resume();
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  createSplash(x, y);
+}
+
+function handleTouch(e) {
+  e.preventDefault();
+  audioEngine.resume();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  createSplash(x, y);
+}
+
+function createSplash(x, y) {
+  // Cycle through colors
+  const colorKey = COLOR_KEYS[colorIndex % COLOR_KEYS.length];
+  colorIndex++;
+  
+  // Calculate size based on setting (50px to 250px)
+  const baseSize = 50;
+  const sizeIncrement = 50;
+  const maxRadius = baseSize + (settings.splashSize - 1) * sizeIncrement;
+  
+  // Calculate speed based on setting (1px to 8px per frame)
+  const speedBase = 1;
+  const speedIncrement = 1.5;
+  const expansionSpeed = speedBase + (settings.speed - 1) * speedIncrement;
+  
+  const splash = new Splash(x, y, colorKey, maxRadius, expansionSpeed);
+  splashes.push(splash);
+  playSplashSound(colorKey);
+  
+  // Announce for screen readers (throttled)
+  if (colorIndex % 3 === 0) {
+    audioEngine.announce(`${COLOR_KEYS.length} colors available. Tap anywhere to paint!`);
+  }
+}
+
+function clearCanvas() {
+  splashes = [];
+  playClearSound();
+  audioEngine.announce('Canvas cleared. Tap to paint again!');
+}
+
+// ─── KEYBOARD CONTROLS ──────────────────────────────────────────────────────
+function handleKeydown(e) {
+  switch(e.key) {
+    case 'c':
+    case 'C':
+      clearCanvas();
+      break;
+    case 's':
+    case 'S':
+      openSettings();
+      break;
+    case 'Enter':
+    case ' ':
+      // Create splash at center if not in settings
+      if (!document.getElementById('settingsModal').classList.contains('active')) {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        createSplash(centerX, centerY);
+        document.getElementById('keyboardHint').textContent = 'Enter creates splash at center. C to clear. S for settings.';
+      }
+      break;
+    case 'Escape':
+      closeSettings();
+      break;
+  }
+}
+
+// ─── SETTINGS ───────────────────────────────────────────────────────────────
+function openSettings() {
+  tempSettings = { ...settings };
+  updateSliderDisplays();
+  document.getElementById('settingsModal').classList.add('active');
+  audioEngine.announce('Settings opened. Choose background, size, speed, and auto-clear.');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+
+function applySettings() {
+  settings = { ...tempSettings };
+  applyBackground();
+  saveSettings();
+  closeSettings();
+  audioEngine.announce(`Settings applied. Background ${BG_LABELS[settings.background]}, size ${SIZE_LABELS[settings.splashSize - 1]}, speed ${SPEED_LABELS[settings.speed - 1]}, clear ${CLEAR_LABELS[settings.autoClear]}.`);
+}
+
+function applyBackground() {
+  document.body.style.background = settings.background;
+  // Announce background change for screen readers
+}
+
+function updateSliderDisplays() {
+  document.getElementById('bgValue').textContent = BG_LABELS[tempSettings.background];
+  document.getElementById('sizeValue').textContent = SIZE_LABELS[tempSettings.splashSize - 1];
+  document.getElementById('speedValue').textContent = SPEED_LABELS[tempSettings.speed - 1];
+  document.getElementById('clearValue').textContent = CLEAR_LABELS[tempSettings.autoClear];
+  
+  document.getElementById('sizeSlider').value = tempSettings.splashSize;
+  document.getElementById('speedSlider').value = tempSettings.speed;
+  document.getElementById('clearSlider').value = tempSettings.autoClear;
+  
+  // Update background swatches
+  document.querySelectorAll('#bgOptions .color-swatch').forEach(sw => {
+    sw.classList.toggle('selected', sw.dataset.bg === tempSettings.background);
+  });
+}
+
+function selectBackground(bg) {
+  tempSettings.background = bg;
+  document.querySelectorAll('#bgOptions .color-swatch').forEach(sw => {
+    sw.classList.toggle('selected', sw.dataset.bg === bg);
+  });
+  document.getElementById('bgValue').textContent = BG_LABELS[bg];
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem('colorSplashSettings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('Could not save settings:', e);
+  }
+}
+
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem('colorSplashSettings');
+    if (saved) {
+      settings = { ...settings, ...JSON.parse(saved) };
+      applyBackground();
+    }
+  } catch (e) {
+    console.warn('Could not load settings:', e);
+  }
+}
+
+// ─── RENDER LOOP ────────────────────────────────────────────────────────────
+function update() {
+  for (let i = splashes.length - 1; i >= 0; i--) {
+    splashes[i].update();
+    if (splashes[i].isDead()) {
+      splashes.splice(i, 1);
+    }
+  }
+}
+
+function draw() {
+  // Clear with background color
+  ctx.fillStyle = settings.background;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw all splashes
+  for (let splash of splashes) {
+    splash.draw(ctx);
+  }
+}
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+// ─── INITIALIZATION ─────────────────────────────────────────────────────────
+function init() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  
+  audioEngine = new GameEngine.AudioEngine();
+  audioEngine.init();
+  
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  
+  // Load saved settings
+  loadSettings();
+  applyBackground();
+  
+  // Event listeners
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchstart', handleTouch, { passive: false });
+  document.addEventListener('keydown', handleKeydown);
+  
+  document.getElementById('clearBtn').addEventListener('click', clearCanvas);
+  document.getElementById('settingsBtn').addEventListener('click', openSettings);
+  document.getElementById('cancelBtn').addEventListener('click', closeSettings);
+  document.getElementById('applyBtn').addEventListener('click', applySettings);
+  
+  // Slider listeners
+  document.getElementById('sizeSlider').addEventListener('input', (e) => {
+    tempSettings.splashSize = parseInt(e.target.value);
+    document.getElementById('sizeValue').textContent = SIZE_LABELS[tempSettings.splashSize - 1];
+  });
+  document.getElementById('speedSlider').addEventListener('input', (e) => {
+    tempSettings.speed = parseInt(e.target.value);
+    document.getElementById('speedValue').textContent = SPEED_LABELS[tempSettings.speed - 1];
+  });
+  document.getElementById('clearSlider').addEventListener('input', (e) => {
+    tempSettings.autoClear = parseInt(e.target.value);
+    document.getElementById('clearValue').textContent = CLEAR_LABELS[tempSettings.autoClear];
+  });
+  
+  // Background swatch listeners
+  document.querySelectorAll('#bgOptions .color-swatch').forEach(sw => {
+    sw.addEventListener('click', () => selectBackground(sw.dataset.bg));
+    sw.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectBackground(sw.dataset.bg);
+      }
+    });
+  });
+  
+  // Accessibility panel
+  accessibilityPanel = new AccessibilityPanel({
+    onChange: (a11ySettings) => {
+      audioEngine.setMuted(!a11ySettings.soundEnabled);
+      
+      if (a11ySettings.motorFriendly) {
+        // Auto-switch to larger splashes and slower speed
+        settings.splashSize = Math.max(settings.splashSize, 4);
+        settings.speed = Math.min(settings.speed, 2);
+        saveSettings();
+      }
+      
+      if (a11ySettings.highContrast) {
+        // Ensure outlines are extra thick
+        splashes.forEach(s => s.outlineWidth = 6);
+      }
+    }
+  });
+  
+  // Start game loop
+  gameLoop = new GameEngine.GameLoop(update, draw);
+  gameLoop.start();
+  
+  audioEngine.announce('Color Splash ready! Tap anywhere to paint with bold colors and music. Press C to clear.');
+}
+
+// Cordova / Browser init
+document.addEventListener('deviceready', init, false);
+if (!window.cordova) {
+  window.addEventListener('load', init);
+}
+</script>
+
+</body>
+</html>

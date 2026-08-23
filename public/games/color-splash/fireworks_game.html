@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Fireworks Show Game - Click to launch fireworks! Accessible and fun for everyone.">
+<title>Fireworks Show</title>
+<link rel="stylesheet" href="css/common.css">
+<style>
+body {
+  background: #000000;
+  margin: 0;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+}
+#backBtn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+#backBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-5px);
+}
+#instructions {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 16px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  z-index: 10;
+  text-align: right;
+}
+#gameCanvas {
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+.keyboard-hint {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  z-index: 10;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" id="backBtn" aria-label="Back to games" title="Back to games">←</a>
+<div id="instructions">Click or tap to launch fireworks!</div>
+<canvas id="gameCanvas"></canvas>
+<div class="keyboard-hint" id="keyboardHint">Click or tap to launch fireworks!</div>
+
+<script type="text/javascript" src="cordova.js"></script>
+<script src="js/game-engine.js"></script>
+<script src="js/accessibility-panel.js"></script>
+<script>
+  // Game state
+  let canvas, ctx;
+  let fireworks = [];
+  let particles = [];
+  let autoFireworkTimer;
+  let autoFireworkActive = false;
+  let nextAutoFireworkTime = 0;
+  let audioEngine;
+  let particleSystem;
+  let gameLoop;
+  let accessibilityPanel;
+
+  // Firework colors
+  const colors = [
+    ['#ff0000', '#ff6b6b', '#ff9999'],
+    ['#00ff00', '#6bff6b', '#99ff99'],
+    ['#0000ff', '#6b6bff', '#9999ff'],
+    ['#ffff00', '#ffff6b', '#ffff99'],
+    ['#ff00ff', '#ff6bff', '#ff99ff'],
+    ['#00ffff', '#6bffff', '#99ffff'],
+    ['#ff8800', '#ffaa6b', '#ffcc99'],
+    ['#8800ff', '#aa6bff', '#cc99ff']
+  ];
+
+  class Firework {
+    constructor(startX, targetX, targetY, isAuto = false) {
+      this.x = startX;
+      this.y = canvas.height;
+      this.targetX = targetX;
+      this.targetY = targetY;
+      this.isAuto = isAuto;
+      
+      const dx = targetX - this.x;
+      const dy = targetY - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const speed = 5;
+      
+      this.vx = (dx / distance) * speed;
+      this.vy = (dy / distance) * speed;
+      
+      this.colorScheme = colors[Math.floor(Math.random() * colors.length)];
+      this.exploded = false;
+      this.trail = [];
+    }
+
+    update() {
+      if (this.exploded) return;
+
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > 10) {
+        this.trail.shift();
+      }
+
+      this.x += this.vx;
+      this.y += this.vy;
+
+      const dx = this.targetX - this.x;
+      const dy = this.targetY - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < 5) {
+        this.explode();
+      }
+    }
+
+    draw() {
+      if (this.exploded) return;
+
+      ctx.strokeStyle = this.colorScheme[0];
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < this.trail.length; i++) {
+        const point = this.trail[i];
+        const alpha = i / this.trail.length;
+        ctx.globalAlpha = alpha * 0.5;
+        if (i === 0) {
+          ctx.moveTo(point.x, point.y);
+        } else {
+          ctx.lineTo(point.x, point.y);
+        }
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = this.colorScheme[0];
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    explode() {
+      this.exploded = true;
+      audioEngine.playExplosion();
+
+      if (this.isAuto) {
+        autoFireworkActive = false;
+        nextAutoFireworkTime = Date.now() + 2000;
+      }
+
+      const particleCount = 100;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 5 + 2;
+        particleSystem.add(new GameEngine.Particle(this.x, this.y, 
+          this.colorScheme[Math.floor(Math.random() * this.colorScheme.length)], {
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          gravity: 0.05,
+          friction: 0.98,
+          alpha: 1,
+          decay: Math.random() * 0.015 + 0.01,
+          size: Math.random() * 3 + 1
+        }));
+      }
+      
+      // Announce for screen readers
+      if (this.isAuto) {
+        audioEngine.announce('Firework launched automatically');
+      }
+    }
+  }
+
+  function launchAutoFirework() {
+    if (autoFireworkActive) return;
+    
+    const startX = Math.random() * canvas.width;
+    const targetX = Math.random() * canvas.width;
+    const targetY = Math.random() * (canvas.height * 0.5) + 50;
+    
+    fireworks.push(new Firework(startX, targetX, targetY, true));
+    audioEngine.playLaunch();
+    autoFireworkActive = true;
+  }
+
+  function launchFireworkAt(targetX, targetY) {
+    const startX = Math.random() * canvas.width;
+    fireworks.push(new Firework(startX, targetX, targetY));
+    audioEngine.playLaunch();
+    audioEngine.announce('Firework launched');
+  }
+
+  function handleClick(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    launchFireworkAt(x, y);
+  }
+
+  function handleTouch(e) {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    launchFireworkAt(x, y);
+  }
+
+  // Keyboard controls
+  let keyboardX = 0, keyboardY = 0;
+  let keyboardVisible = false;
+  
+  function handleKeydown(e) {
+    switch(e.key) {
+      case 'Enter':
+      case ' ':
+        if (keyboardVisible) {
+          launchFireworkAt(keyboardX, keyboardY);
+        }
+        break;
+      case 'ArrowUp':
+        if (keyboardVisible) {
+          keyboardY = Math.max(0, keyboardY - 20);
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowDown':
+        if (keyboardVisible) {
+          keyboardY = Math.min(canvas.height, keyboardY + 20);
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowLeft':
+        if (keyboardVisible) {
+          keyboardX = Math.max(0, keyboardX - 20);
+          e.preventDefault();
+        }
+        break;
+      case 'ArrowRight':
+        if (keyboardVisible) {
+          keyboardX = Math.min(canvas.width, keyboardX + 20);
+          e.preventDefault();
+        }
+        break;
+      case 'Tab':
+        if (!keyboardVisible) {
+          keyboardVisible = true;
+          keyboardX = canvas.width / 2;
+          keyboardY = canvas.height / 2;
+          audioEngine.announce('Keyboard mode enabled. Use arrow keys to move target, Enter or Space to launch.');
+          document.getElementById('keyboardHint').textContent = 'Keyboard mode! Arrows to aim, Enter/Space to launch';
+        }
+        e.preventDefault();
+        break;
+    }
+  }
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function update() {
+    for (let i = fireworks.length - 1; i >= 0; i--) {
+      fireworks[i].update();
+      
+      if (fireworks[i].exploded) {
+        fireworks.splice(i, 1);
+      }
+    }
+
+    particleSystem.update();
+
+    if (!autoFireworkActive && Date.now() >= nextAutoFireworkTime) {
+      launchAutoFirework();
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let firework of fireworks) {
+      firework.draw();
+    }
+
+    particleSystem.draw(ctx);
+    
+    // Draw keyboard cursor
+    if (keyboardVisible) {
+      ctx.save();
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(keyboardX, keyboardY, 15, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function init() {
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    
+    audioEngine = new GameEngine.AudioEngine();
+    audioEngine.init();
+    particleSystem = new GameEngine.ParticleSystem();
+    
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('click', handleClick);
+    canvas.addEventListener('touchstart', handleTouch, { passive: false });
+    document.addEventListener('keydown', handleKeydown);
+
+    // Initialize accessibility panel
+    accessibilityPanel = new AccessibilityPanel({
+      onChange: (settings) => {
+        audioEngine.setMuted(!settings.soundEnabled);
+      }
+    });
+
+    launchAutoFirework();
+
+    gameLoop = new GameEngine.GameLoop(update, draw);
+    gameLoop.start();
+
+    audioEngine.announce('Fireworks Show started. Click or tap to launch fireworks!');
+  }
+
+  document.addEventListener('deviceready', init, false);
+
+  if (!window.cordova) {
+    window.addEventListener('load', init);
+  }
+</script>
+</body>
+</html>

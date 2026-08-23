@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Runner Dodge</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#8ecae6; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  #g { display:block; width:100%; height:100%; touch-action:none; }
+  .hud { position:fixed; top:14px; left:0; right:0; padding:0 18px; display:flex; justify-content:space-between; color:#023047; font-weight:900; pointer-events:none; }
+  .hud .s { font-size:24px; }
+  .ov { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(2,48,71,.78); color:#fff; text-align:center; gap:16px; }
+  .ov h1 { font-size:38px; }
+  .ov p { opacity:.85; line-height:1.6; }
+  .btn { padding:14px 36px; border:none; border-radius:999px; font-size:18px; font-weight:800; color:#023047; background:linear-gradient(90deg,#ffd166,#ff9e00); cursor:pointer; box-shadow:0 8px 22px rgba(255,158,0,.4); }
+  .btn:active { transform:scale(.95); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<canvas id="g"></canvas>
+<div class="hud"><div class="s">🏃 <span id="score">0</span> m</div><div class="s" id="best">Best 0</div></div>
+<div class="ov" id="start"><h1>🏃 Runner Dodge</h1><p>Tap the screen / press Space to jump,<br>and dodge the cacti and rocks! It speeds up as you go.</p><button class="btn" id="sb">Start Running!</button></div>
+<div class="ov hidden" id="over"><h1>💥 Crash!</h1><p>You ran <b id="fs">0</b> m this time<br>Want to try again?</p><button class="btn" id="rb">Run Again</button></div>
+<script>
+(function(){
+  const cv=document.getElementById('g'), ctx=cv.getContext('2d');
+  let W,H; function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;} resize(); addEventListener('resize',resize);
+  const scoreEl=document.getElementById('score'), bestEl=document.getElementById('best');
+  const startOv=document.getElementById('start'), overOv=document.getElementById('over'), fs=document.getElementById('fs');
+  let player, obstacles, speed, dist, running, spawnT, best=0;
+  function reset(){ player={x:120,y:H-90,vy:0,w:34,h:46,onGround:true}; obstacles=[]; speed=6; dist=0; spawnT=0; scoreEl.textContent='0'; }
+  function jump(){ if(player.onGround){ player.vy=-15; player.onGround=false; } }
+  function spawn(){
+    const h=20+Math.random()*40; obstacles.push({x:W+30, y:H-60-h, w:22+Math.random()*22, h:h, type:Math.random()<0.5?'cactus':'rock'});
+  }
+  function update(){
+    if(!running) return;
+    dist+=speed*0.1; scoreEl.textContent=Math.floor(dist);
+    player.vy+=0.8; player.y+=player.vy;
+    if(player.y>=H-90){ player.y=H-90; player.vy=0; player.onGround=true; }
+    speed+=0.002;
+    spawnT--; if(spawnT<=0){ spawn(); spawnT=Math.max(40,90-speed*2); }
+    for(const o of obstacles) o.x-=speed;
+    obstacles=obstacles.filter(o=>o.x> -60);
+    // collision
+    for(const o of obstacles){
+      if(player.x+player.w*0.6>o.x && player.x+player.w*0.3<o.x+o.w && player.y+player.h>o.y){ gameOver(); return; }
+    }
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // sky gradient
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#8ecae6'); g.addColorStop(1,'#cdeefc'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // ground
+    ctx.fillStyle='#76c893'; ctx.fillRect(0,H-60,W,60);
+    ctx.fillStyle='#52b788'; ctx.fillRect(0,H-60,W,8);
+    // player
+    ctx.save(); ctx.translate(player.x,player.y);
+    ctx.fillStyle='#fb8500'; ctx.fillRect(0,0,player.w,player.h*0.7);
+    ctx.fillStyle='#ffd166'; ctx.beginPath(); ctx.arc(player.w/2,-6,14,0,6.28); ctx.fill(); // head
+    ctx.fillStyle='#023047'; ctx.fillRect(player.w*0.3,-10,4,4); ctx.fillRect(player.w*0.6,-10,4,4);
+    // legs
+    ctx.fillStyle='#023e8a'; const t=player.onGround?0:Date.now()/60;
+    ctx.fillRect(4,player.h*0.7,10,18+Math.sin(t)*2); ctx.fillRect(player.w-14,player.h*0.7,10,18-Math.sin(t)*2);
+    ctx.restore();
+    // obstacles
+    for(const o of obstacles){
+      if(o.type==='cactus'){ ctx.fillStyle='#2d6a4f'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.fillRect(o.x+o.w/2-4,o.y-12,8,14); }
+      else { ctx.fillStyle='#6c757d'; ctx.beginPath(); ctx.arc(o.x+o.w/2,o.y+o.h,o.w/2,Math.PI,0); ctx.fill(); ctx.fillRect(o.x,o.y+o.h-2,o.w,2); }
+    }
+  }
+  function loop(){ update(); draw(); if(running) requestAnimationFrame(loop); }
+  function start(){ reset(); running=true; startOv.classList.add('hidden'); overOv.classList.add('hidden'); loop(); }
+  function gameOver(){ running=false; if(dist>best){best=Math.floor(dist); bestEl.textContent='Best '+best;} fs.textContent=Math.floor(dist); overOv.classList.remove('hidden'); }
+  document.getElementById('sb').onclick=start; document.getElementById('rb').onclick=start;
+  addEventListener('keydown',e=>{ if(e.code==='Space'){ if(!running) start(); else jump(); } });
+  cv.addEventListener('mousedown',jump); cv.addEventListener('touchstart',e=>{jump(); e.preventDefault();},{passive:false});
+  reset(); draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Turbo Racer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #0b1020; overflow: hidden; font-family: system-ui, sans-serif; }
+  #wrap { position: relative; width: 100%; height: 100%; }
+  canvas { display: block; width: 100%; height: 100%; background: #0b1020; touch-action: none; }
+  #hud { position: absolute; top: 12px; left: 14px; color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .5px; text-shadow: 0 2px 6px rgba(0,0,0,.6); pointer-events: none; }
+  #hud small { display:block; font-weight:600; font-size:11px; opacity:.75; margin-top:2px; }
+  #ov { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #fff; background: rgba(8,12,28,.78); backdrop-filter: blur(4px); text-align: center; padding: 20px; }
+  #ov h1 { font-size: 30px; background: linear-gradient(90deg,#ff9a73,#ff4d12); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #ov p { max-width: 460px; line-height: 1.6; opacity: .85; font-size: 14px; }
+  .btn { border: none; cursor: pointer; padding: 12px 26px; border-radius: 999px; font-weight: 800; font-size: 16px; color: #fff; background: linear-gradient(90deg,#ff703d,#ed3703); box-shadow: 0 10px 30px -10px rgba(255,77,18,.7); }
+  .btn:active { transform: scale(.96); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div id="hud">Speed <span id="spd">0</span><small>← → / A D to change lanes · swipe left/right on mobile</small></div>
+  <div id="ov">
+    <h1>Turbo Racer</h1>
+    <p>Dodge oncoming traffic and race down the highway! Use arrow keys or A/D to switch lanes, or swipe left/right on mobile.</p>
+    <button class="btn" id="start">Start Driving</button>
+  </div>
+</div>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W=960,H=540,scale=1;
+function resize(){ const r=cv.getBoundingClientRect(); W=r.width; H=r.height; cv.width=W; cv.height=H; }
+resize(); addEventListener('resize',resize);
+
+const ov=document.getElementById('ov'), startBtn=document.getElementById('start');
+const spdEl=document.getElementById('spd');
+let running=false, last=0, dist=0, speed=0, best=0;
+// road
+let laneX=[0.2,0.4,0.6,0.8], player={lane:2,x:0,y:0,w:46,h:84}, scroll=0;
+let traffic=[], spawnT=0, keys={};
+const colors=['#ff4d12','#38bdf8','#a78bfa','#fbbf24','#34d399','#f472b6'];
+
+function reset(){ player.lane=2; player.x=laneX[player.lane]*W; player.y=H-110; speed=0; dist=0; traffic=[]; spawnT=0; scroll=0; }
+function spawn(){
+  const lane=(Math.random()*4)|0;
+  const col=colors[(Math.random()*colors.length)|0];
+  traffic.push({lane,x:laneX[lane]*W,y:-90,col,w:46,h:84,sp:120+Math.random()*120});
+}
+
+function key(e,v){ const k=e.key.toLowerCase(); if(k==='arrowleft'||k==='a'){ if(v&&player.lane>0)player.lane--; keys.left=v; } if(k==='arrowright'||k==='d'){ if(v&&player.lane<3)player.lane++; keys.right=v; } }
+addEventListener('keydown',e=>key(e,true)); addEventListener('keyup',e=>key(e,false));
+
+// touch swipe
+let tx=null;
+cv.addEventListener('touchstart',e=>tx=e.touches[0].clientX);
+cv.addEventListener('touchmove',e=>{ if(tx===null)return; const nx=e.touches[0].clientX; if(nx-tx>30){ if(player.lane<3)player.lane++; tx=nx; } else if(tx-nx>30){ if(player.lane>0)player.lane--; tx=nx; } e.preventDefault(); });
+cv.addEventListener('touchend',()=>tx=null);
+
+function loop(t){
+  if(!running){ requestAnimationFrame(loop); return; }
+  const dt=Math.min(0.05,(t-last)/1000||0); last=t;
+  speed=Math.min(620, speed+60*dt);
+  dist+=speed*dt;
+  scroll=(scroll+speed*dt)%80;
+  if(player.x<laneX[player.lane]*W-2) player.x+=Math.min(8, laneX[player.lane]*W-player.x);
+  if(player.x>laneX[player.lane]*W+2) player.x-=Math.min(8, player.x-laneX[player.lane]*W);
+  // spawn
+  spawnT-=dt; if(spawnT<=0){ spawn(); spawnT=0.5+Math.random()*0.5; }
+  // traffic
+  for(const c of traffic){ c.y+=c.sp*dt; }
+  // collision
+  for(const c of traffic){ if(Math.abs(c.x-player.x)<(c.w+player.w)/2-6 && Math.abs(c.y-player.y)<(c.h+player.h)/2-6){ gameOver(); return; } }
+  traffic=traffic.filter(c=>c.y<H+120);
+  draw();
+  spdEl.textContent=Math.round(speed/10);
+  best=Math.max(best,Math.round(dist/10));
+  requestAnimationFrame(loop);
+}
+
+function draw(){
+  ctx.fillStyle='#0b1020'; ctx.fillRect(0,0,W,H);
+  // road
+  const rx=W*0.12, rw=W*0.76;
+  ctx.fillStyle='#1b2236'; ctx.fillRect(rx,0,rw,H);
+  ctx.strokeStyle='#fde047'; ctx.lineWidth=4; ctx.setLineDash([30,30]); ctx.lineDashOffset=-scroll;
+  ctx.beginPath(); ctx.moveTo(rx+rw*0.25,0); ctx.lineTo(rx+rw*0.25,H); ctx.moveTo(rx+rw*0.5,0); ctx.lineTo(rx+rw*0.5,H); ctx.moveTo(rx+rw*0.75,0); ctx.lineTo(rx+rw*0.75,H); ctx.stroke();
+  ctx.setLineDash([]);
+  // traffic
+  for(const c of traffic){ drawCar(c.x,c.y,c.col,false); }
+  // player
+  drawCar(player.x,player.y,'#ff4d12',true);
+}
+function drawCar(x,y,col,isMe){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle=col; roundRect(-23,-42,46,84,10); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.25)'; roundRect(-16,-30,32,40,6); ctx.fill();
+  ctx.fillStyle='#0b1020'; roundRect(-20,38,40,8,4); ctx.fill();
+  if(isMe){ ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.moveTo(0,-46); ctx.lineTo(-8,-40); ctx.lineTo(8,-40); ctx.fill(); }
+  ctx.restore();
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function gameOver(){ running=false; ov.classList.remove('hidden'); ov.querySelector('h1').textContent='Crash!'; ov.querySelector('p').innerHTML='Drove <b>'+Math.round(dist/10)+'</b> m · Best <b>'+best+'</b> m'; startBtn.textContent='Play Again'; }
+startBtn.addEventListener('click',()=>{ reset(); ov.classList.add('hidden'); running=true; last=performance.now(); requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
