@@ -31,3 +31,11 @@ _doc_extract*.txt
 _dist/
 _fixes_delivery/
 code-report.html
+.env
+*.key
+__pycache__/
+*.pyc
+.venv/
+venv/
+cache.json
+.DS_Store
