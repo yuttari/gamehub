@@ -15,7 +15,7 @@ export default function SidebarIconList({
       {games.map((g) => (
         <Link
           key={g.slug}
-          href={`/game/${g.slug}`}
+          href={`/game/${g.slug}/`}
           className="side-item group"
           title={g.title}
         >

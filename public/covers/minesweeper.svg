@@ -1,10 +1,74 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ff4d12"/><stop offset="1" stop-color="#b45309"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#dbeafe"/>
-  <circle cx="330" cy="60" r="120" fill="#ff4d12" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#b45309" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">💣</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">MINESWEEPER</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9aa3b2"/>
+      <stop offset="1" stop-color="#574f63"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)" transform="translate(105,55)">
+    <!-- 4x4 grid -->
+    <g>
+      <rect x="0" y="0" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="46" y="0" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="92" y="0" width="40" height="40" rx="6" fill="#574f63"/>
+      <rect x="138" y="0" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="0" y="46" width="40" height="40" rx="6" fill="#574f63"/>
+      <rect x="46" y="46" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="92" y="46" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="138" y="46" width="40" height="40" rx="6" fill="#574f63"/>
+      <rect x="0" y="92" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="46" y="92" width="40" height="40" rx="6" fill="#574f63"/>
+      <rect x="92" y="92" width="40" height="40" rx="6" fill="#ff4d12"/>
+      <rect x="138" y="92" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="0" y="138" width="40" height="40" rx="6" fill="#574f63"/>
+      <rect x="46" y="138" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="92" y="138" width="40" height="40" rx="6" fill="#7a7287"/>
+      <rect x="138" y="138" width="40" height="40" rx="6" fill="#574f63"/>
+    </g>
+    <!-- numbers -->
+    <g font-family="Inter,sans-serif" font-size="22" font-weight="900" text-anchor="middle">
+      <text x="20" y="74" fill="#5db8ff">1</text>
+      <text x="66" y="74" fill="#7CFC8A">2</text>
+      <text x="112" y="74" fill="#ff4d6d">3</text>
+      <text x="20" y="166" fill="#5db8ff">1</text>
+      <text x="158" y="166" fill="#5db8ff">1</text>
+    </g>
+    <!-- mine -->
+    <g transform="translate(112,112)">
+      <circle r="13" fill="#16131a"/>
+      <rect x="-12" y="-2" width="24" height="4" rx="1" fill="#16131a"/>
+      <rect x="-2" y="-12" width="4" height="24" rx="1" fill="#16131a"/>
+      <circle r="3" fill="#ffd23f"/>
+    </g>
+    <!-- flag -->
+    <g transform="translate(66,166)">
+      <rect x="-1" y="-14" width="2" height="20" fill="#16131a"/>
+      <path d="M 1 -14 L 16 -10 L 1 -6 Z" fill="#ff4d12"/>
+    </g>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(20,15,30,.85)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">MINESWEEPER</text>
 </svg>

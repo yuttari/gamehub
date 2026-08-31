@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5ec8ff"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)" transform="translate(200,140)">
+    <path d="M -100 0 L -50 -18 L 50 -14 L 100 -6 L 100 6 L 50 14 L -50 18 Z" fill="#5db8ff"/>
+    <path d="M -100 0 L -50 -18 L 50 -14 L 100 -6 L 100 6 L 50 14 L -50 18 Z" fill="rgba(255,255,255,0.3)"/>
+    <path d="M -10 -10 L -30 -55 L 20 -55 L 30 -10 Z" fill="#1e3a8a"/>
+    <path d="M -10 10 L -30 55 L 20 55 L 30 10 Z" fill="#1e3a8a"/>
+    <ellipse cx="30" cy="0" rx="22" ry="10" fill="#0a0c18"/>
+    <ellipse cx="30" cy="-3" rx="14" ry="5" fill="#22d3ee" opacity="0.9"/>
+    <circle cx="100" cy="0" r="6" fill="#ffd23f"/>
+  </g>
+  <!-- missile -->
+  <g transform="translate(330,80) rotate(20)">
+    <rect width="32" height="8" rx="2" fill="#ff4d12"/>
+    <path d="M 32 0 L 42 4 L 32 8 Z" fill="#ffd23f"/>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(15,30,80,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">SKY FIGHTER</text>
+</svg>

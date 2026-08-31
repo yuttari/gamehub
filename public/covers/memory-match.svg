@@ -1,10 +1,61 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#fb7185"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#fff1f5"/>
-  <circle cx="330" cy="60" r="120" fill="#f472b6" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#fb7185" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🃏</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">MEMORY-MATCH</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7CFC8A"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)" transform="translate(200,130)">
+    <g transform="translate(-90,-50)">
+      <rect width="80" height="100" rx="10" fill="#fff"/>
+      <g transform="translate(40,55)">
+        <path d="M -20 10 Q -20 -15 0 -15 Q 20 -15 20 10 Q 14 18 0 18 Q -14 18 -20 10" fill="#ff5e7a"/>
+        <ellipse cx="-5" cy="0" rx="6" ry="3" fill="#fff" opacity="0.5"/>
+      </g>
+    </g>
+    <g transform="translate(-30,-50)">
+      <rect width="80" height="100" rx="10" fill="#7CFC8A"/>
+      <rect x="6" y="6" width="68" height="88" rx="6" fill="#a3f5b5"/>
+      <text x="40" y="60" font-size="40" text-anchor="middle" fill="#fff" font-weight="900">★</text>
+    </g>
+    <g transform="translate(40,-50)">
+      <rect width="80" height="100" rx="10" fill="#fff"/>
+      <g transform="translate(40,55)">
+        <path d="M -20 10 Q -20 -15 0 -15 Q 20 -15 20 10 Q 14 18 0 18 Q -14 18 -20 10" fill="#ff5e7a"/>
+        <ellipse cx="-5" cy="0" rx="6" ry="3" fill="#fff" opacity="0.5"/>
+      </g>
+    </g>
+    <g transform="translate(110,-50)">
+      <rect width="80" height="100" rx="10" fill="#fff"/>
+      <g transform="translate(40,55)">
+        <circle r="18" fill="#5db8ff"/>
+        <ellipse cx="-5" cy="-5" rx="6" ry="3" fill="#fff" opacity="0.6"/>
+      </g>
+    </g>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(10,60,20,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">MEMORY CARDS</text>
 </svg>

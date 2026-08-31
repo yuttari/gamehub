@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Pac-Man</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% 0%,#1a1f3a,#0a0c18);color:#fff;
+    display:flex;align-items:center;justify-content:center;padding:14px;overflow:hidden;touch-action:none;
+  }
+  .wrap{width:100%;max-width:840px;text-align:center;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;}
+  h1{font-size:22px;font-weight:900;letter-spacing:.5px;color:#ffe14d;}
+  .stats{display:flex;gap:10px;}
+  .pill{background:rgba(255,255,255,.1);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;}
+  .pill b{color:#ffe14d;}
+  .stage{position:relative;margin:0 auto;width:100%;aspect-ratio:16/9;background:#000;border:2px solid #1d2347;border-radius:14px;overflow:hidden;}
+  canvas{display:block;width:100%;height:100%;}
+  .overlay{position:absolute;inset:0;background:rgba(8,10,20,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .25s;border-radius:14px;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay h2{font-size:28px;font-weight:900;color:#ffe14d;}
+  .overlay p{opacity:.75;font-size:14px;max-width:340px;line-height:1.5;}
+  .btn{background:#ffe14d;color:#111;border:none;border-radius:12px;padding:12px 28px;font-weight:900;font-size:16px;cursor:pointer;transition:transform .1s;}
+  .btn:active{transform:scale(.95);}
+  .hint{margin-top:10px;font-size:12px;opacity:.5;}
+  .pad{display:none;margin-top:12px;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:6px;justify-content:center;}
+  .pad button{background:rgba(255,255,255,.12);border:none;border-radius:12px;color:#fff;font-size:22px;font-weight:900;}
+  .pad .up{grid-area:1/2;} .pad .left{grid-area:2/1;} .pad .down{grid-area:3/2;} .pad .right{grid-area:2/3;}
+  @media(hover:none){.pad{display:grid;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>👾 Pac-Man</h1>
+    <div class="stats">
+      <div class="pill">Score <b id="score">0</b></div>
+      <div class="pill">Lives <b id="lives">3</b></div>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlay show" id="ov">
+      <h2 id="ovt">Ready?</h2>
+      <p id="ovp">Eat all the dots. Avoid the ghosts — or grab a power pellet to fight back!</p>
+      <button class="btn" id="start">Start Game</button>
+    </div>
+  </div>
+  <div class="pad">
+    <button class="up" data-d="up">▲</button>
+    <button class="left" data-d="left">◀</button>
+    <button class="down" data-d="down">▼</button>
+    <button class="right" data-d="right">▶</button>
+  </div>
+  <p class="hint">PC: Arrow keys / WASD　·　Mobile: D-pad</p>
+</div>
+<script>
+(function(){
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const stage=document.getElementById('stage'),ov=document.getElementById('ov'),ovt=document.getElementById('ovt'),ovp=document.getElementById('ovp'),startBtn=document.getElementById('start');
+  const scoreEl=document.getElementById('score'),livesEl=document.getElementById('lives');
+  const MAP=[
+    "1111111111111111111111",
+    "1000000000000000000001",
+    "1022220222220222220201",
+    "1222222222222222222201",
+    "1022220220020222220201",
+    "1222222220222222222201",
+    "1000001000000001000001",
+    "1110111221112211101111",
+    "1000010000000001000001",
+    "1222222220222222222201",
+    "1022220222220222220201",
+    "1222222222222222222201",
+    "1000000000000000000001",
+    "1111111111111111111111"
+  ];
+  const ROWS=MAP.length, COLS=MAP[0].length;
+  let cell=0, ox=0, oy=0, W=0, H=0;
+  let pac, ghosts, score=0, lives=3, running=false, won=false, mouth=0, raf=0;
+  const DIRS={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+
+  function resize(){
+    W=stage.clientWidth; H=stage.clientHeight;
+    if(W===0||H===0) return;
+    cv.width=W*devicePixelRatio; cv.height=H*devicePixelRatio;
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    cell=Math.min(W/COLS,H/ROWS);
+    ox=(W-cell*COLS)/2; oy=(H-cell*ROWS)/2;
+  }
+  function setTile(c,r,v){ const row=MAP[r]; MAP[r]=row.substring(0,c)+v+row.substring(c+1); }
+  function isWall(c,r){ return r<0||r>=ROWS||c<0||c>=COLS||MAP[r][c]==='1'; }
+
+  function reset(){
+    score=0; lives=3; won=false; scoreEl.textContent=0; livesEl.textContent=3;
+    pac={c:10,r:6,nxt:'left',dir:'left'};
+    ghosts=[
+      {c:9,r:6,dir:'up',sp:0.06,t:0,scared:0,col:'#ff4d6d'},
+      {c:10,r:6,dir:'down',sp:0.06,t:0,scared:0,col:'#4dd2ff'},
+      {c:11,r:6,dir:'left',sp:0.06,t:0,scared:0,col:'#ffa24d'}
+    ];
+    resize();
+    running=true; ov.classList.remove('show');
+    cancelAnimationFrame(raf); loop();
+  }
+  function movePac(){
+    const nd=DIRS[pac.nxt];
+    if(!isWall(pac.c+nd[0],pac.r+nd[1])) pac.dir=pac.nxt;
+    const d=DIRS[pac.dir];
+    if(!isWall(pac.c+d[0],pac.r+d[1])){
+      pac.c+=d[0]; pac.r+=d[1];
+      const t=MAP[pac.r][pac.c];
+      if(t==='2'){ score+=10; setTile(pac.c,pac.r,'0'); }
+      else if(t==='3'){ score+=50; setTile(pac.c,pac.r,'0'); ghosts.forEach(g=>g.scared=120); }
+      scoreEl.textContent=score;
+    }
+  }
+  function moveGhost(g){
+    if(g.t>=1){
+      g.t-=1;
+      const opts=Object.keys(DIRS).filter(k=>{
+        const dd=DIRS[k];
+        return !isWall(g.c+dd[0],g.r+dd[1]) && !(dd[0]===-DIRS[g.dir][0]&&dd[1]===-DIRS[g.dir][1]);
+      });
+      if(opts.length) g.dir=opts[(Math.random()*opts.length)|0];
+      g.c+=DIRS[g.dir][0]; g.r+=DIRS[g.dir][1]; g.t=0;
+    } else g.t+=g.sp;
+    if(g.scared>0) g.scared--;
+  }
+  function check(){
+    let dots=0;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(MAP[r][c]==='2'||MAP[r][c]==='3') dots++;
+    if(dots===0){ won=true; end('You Win!','All dots eaten. Score '+score); return; }
+    for(const g of ghosts){
+      if(g.c===pac.c&&g.r===pac.r){
+        if(g.scared>0){ score+=200; scoreEl.textContent=score; g.scared=0; g.c=10;g.r=6;g.dir='left';g.t=0; }
+        else { lives--; livesEl.textContent=lives;
+          if(lives<=0){ end('Game Over','Score '+score); return; }
+          pac.c=10;pac.r=6;pac.dir='left';pac.nxt='left';
+        }
+      }
+    }
+  }
+  function end(t,p){ running=false; cancelAnimationFrame(raf); ovt.textContent=t; ovp.textContent=p; startBtn.textContent='Play Again'; ov.classList.add('show'); }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const x=ox+c*cell, y=oy+r*cell;
+      if(MAP[r][c]==='1'){ ctx.fillStyle='#1d2b8a'; ctx.fillRect(x+1,y+1,cell-2,cell-2); }
+      else if(MAP[r][c]==='2'){ ctx.fillStyle='#ffe14d'; ctx.beginPath();ctx.arc(x+cell/2,y+cell/2,cell*0.12,0,7);ctx.fill(); }
+      else if(MAP[r][c]==='3'){ ctx.fillStyle='#fff'; ctx.beginPath();ctx.arc(x+cell/2,y+cell/2,cell*0.22,0,7);ctx.fill(); }
+    }
+    for(const g of ghosts){
+      const x=ox+g.c*cell+cell/2, y=oy+g.r*cell+cell/2;
+      ctx.fillStyle=g.scared>0?((g.scared<30&&g.scared%10<5)?'#fff':'#4d7dff'):g.col;
+      ctx.beginPath();
+      ctx.arc(x,y-cell*0.05,cell*0.38,Math.PI,0);
+      ctx.lineTo(x+cell*0.38,y+cell*0.33);
+      for(let i=3;i>=0;i--){ const bx=x-cell*0.38+i*(cell*0.76/3); ctx.lineTo(bx-cell*0.12,y+cell*0.18); ctx.lineTo(bx,y+cell*0.33); }
+      ctx.closePath(); ctx.fill();
+      if(g.scared>0){ ctx.fillStyle='#fff'; ctx.beginPath();ctx.arc(x-cell*0.13,y-cell*0.05,cell*0.07,0,7);ctx.arc(x+cell*0.13,y-cell*0.05,cell*0.07,0,7);ctx.fill(); }
+    }
+    const x=ox+pac.c*cell+cell/2, y=oy+pac.r*cell+cell/2;
+    mouth=(mouth+0.15)%1;
+    const open=mouth<0.5?0.28:0.02;
+    const a=DIRS[pac.dir];
+    const ang=Math.atan2(a[1],a[0]);
+    ctx.fillStyle='#ffe14d';
+    ctx.beginPath();ctx.moveTo(x,y);
+    ctx.arc(x,y,cell*0.42,ang+open,ang+Math.PI*2-open);ctx.closePath();ctx.fill();
+  }
+  function loop(){
+    if(!running) return;
+    movePac();
+    for(const g of ghosts) moveGhost(g);
+    check();
+    if(!running) return;
+    draw();
+    raf=requestAnimationFrame(loop);
+  }
+  function setDir(d){ if(DIRS[d]) pac.nxt=d; }
+  window.addEventListener('keydown',e=>{
+    const m={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right',W:'up',S:'down',A:'left',D:'right'};
+    if(m[e.key]){e.preventDefault();setDir(m[e.key]);}
+  });
+  document.querySelectorAll('.pad button').forEach(b=>b.onclick=()=>setDir(b.dataset.d));
+  startBtn.onclick=reset;
+  window.addEventListener('resize',resize);
+
+  // 确保尺寸正确后再画一次静态画面
+  function initStatic(){
+    resize();
+    if(W>0&&H>0){ draw(); }
+    else { requestAnimationFrame(initStatic); }
+  }
+  initStatic();
+})();
+</script>
+</body>
+</html>

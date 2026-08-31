@@ -1,10 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ffd43b"/><stop offset="1" stop-color="#e8590c"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#fff4e6"/>
-  <circle cx="330" cy="60" r="120" fill="#ffd43b" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#e8590c" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🍰</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">CAKE</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffc7d9"/>
+      <stop offset="1" stop-color="#ff4d6d"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)" transform="translate(200,150)">
+    <!-- plate -->
+    <ellipse cx="0" cy="60" rx="100" ry="14" fill="#cfd8e3"/>
+    <!-- bottom tier -->
+    <rect x="-80" y="0" width="160" height="50" rx="6" fill="#ff9a73"/>
+    <rect x="-80" y="0" width="160" height="14" fill="#ff4d6d"/>
+    <!-- middle tier -->
+    <rect x="-58" y="-44" width="116" height="44" rx="6" fill="#ffd23f"/>
+    <rect x="-58" y="-44" width="116" height="12" fill="#ff9f1c"/>
+    <!-- top tier -->
+    <rect x="-36" y="-82" width="72" height="38" rx="6" fill="#fff7d6"/>
+    <rect x="-36" y="-82" width="72" height="10" fill="#ff4d6d"/>
+    <!-- candles -->
+    <rect x="-20" y="-100" width="6" height="20" fill="#22d3ee"/>
+    <rect x="-3" y="-105" width="6" height="25" fill="#7CFC8A"/>
+    <rect x="14" y="-100" width="6" height="20" fill="#ff4d6d"/>
+    <circle cx="-17" cy="-102" r="4" fill="#ffd23f"/>
+    <circle cx="0" cy="-107" r="4" fill="#ffd23f"/>
+    <circle cx="17" cy="-102" r="4" fill="#ffd23f"/>
+    <!-- sprinkles -->
+    <g>
+      <rect x="-50" y="-2" width="4" height="2" fill="#22d3ee"/>
+      <rect x="30" y="10" width="4" height="2" fill="#7CFC8A"/>
+      <rect x="40" y="-2" width="4" height="2" fill="#ff4d6d"/>
+      <rect x="-30" y="20" width="4" height="2" fill="#ffd23f"/>
+    </g>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(60,10,30,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">CAKE</text>
 </svg>

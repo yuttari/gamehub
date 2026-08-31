@@ -6,15 +6,18 @@ import AdManager from "@/components/AdManager";
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://gamehub.example",
+  ),
   title: {
-    default: "GameHub — Free Online Games, Play Instantly",
-    template: "%s — GameHub",
+    default: "Have Fun — Free Online Games, Play Instantly",
+    template: "%s — Have Fun",
   },
   description:
-    "GameHub offers a curated collection of free HTML5 games — puzzle, arcade, casual, multiplayer. Play instantly, no download.",
+    "Have Fun offers a curated collection of free HTML5 games — puzzle, arcade, casual, multiplayer. Play instantly, no download.",
   keywords: ["online games", "html5 games", "free games", "puzzle", "arcade", "casual"],
   openGraph: {
-    title: "GameHub — Free Online Games",
+    title: "Have Fun — Free Online Games",
     description: "Curated free HTML5 games, play instantly.",
     type: "website",
   },

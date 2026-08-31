@@ -1,10 +1,65 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#e03131"/><stop offset="1" stop-color="#ff922b"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#fff4e6"/>
-  <circle cx="330" cy="60" r="120" fill="#e03131" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#ff922b" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🍉</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">FRUIT-SLICE</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe9c4"/>
+      <stop offset="1" stop-color="#ff9a73"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)">
+    <!-- sliced watermelon -->
+    <g transform="translate(140,150)">
+      <path d="M -60 0 A 60 60 0 0 1 60 0 Z" fill="#ff4d6d"/>
+      <path d="M -60 0 A 60 60 0 0 1 60 0 Z" fill="rgba(255,255,255,0.18)"/>
+      <path d="M -54 0 A 54 54 0 0 1 54 0 Z" fill="#fff7d6"/>
+      <path d="M -50 0 A 50 50 0 0 1 50 0 Z" fill="#ff4d6d"/>
+      <g fill="#16131a">
+        <ellipse cx="-20" cy="-15" rx="3" ry="6"/>
+        <ellipse cx="0" cy="-22" rx="3" ry="6"/>
+        <ellipse cx="20" cy="-15" rx="3" ry="6"/>
+        <ellipse cx="-10" cy="-8" rx="3" ry="6"/>
+        <ellipse cx="10" cy="-8" rx="3" ry="6"/>
+      </g>
+    </g>
+    <!-- citrus half -->
+    <g transform="translate(290,160)">
+      <circle r="44" fill="#ffa24d"/>
+      <circle r="36" fill="#fff7d6"/>
+      <g stroke="#ffa24d" stroke-width="3" fill="none">
+        <line x1="0" y1="-36" x2="0" y2="36"/>
+        <line x1="-36" y1="0" x2="36" y2="0"/>
+        <line x1="-26" y1="-26" x2="26" y2="26"/>
+        <line x1="26" y1="-26" x2="-26" y2="26"/>
+      </g>
+    </g>
+    <!-- knife -->
+    <g transform="translate(330,80) rotate(30)">
+      <path d="M 0 0 L 60 6 L 60 14 L 0 8 Z" fill="#cfd8e3"/>
+      <rect x="-22" y="-2" width="22" height="14" rx="3" fill="#a05a2c"/>
+    </g>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(60,20,5,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">FRUIT SLICE</text>
 </svg>

@@ -1,10 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#ec4899"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#0a0a0a"/>
-  <circle cx="330" cy="60" r="120" fill="#8b5cf6" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#ec4899" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🎵</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">MUSIC-SHAPES</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f472b6"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)">
+    <!-- shapes -->
+    <g transform="translate(110,100)">
+      <circle r="30" fill="#ff4d6d"/>
+      <ellipse cx="-10" cy="-10" rx="10" ry="5" fill="rgba(255,255,255,0.5)"/>
+    </g>
+    <g transform="translate(200,150)">
+      <rect width="60" height="60" rx="10" fill="#22d3ee" transform="rotate(20)"/>
+    </g>
+    <g transform="translate(300,100)">
+      <path d="M 0 -32 L 28 16 L -28 16 Z" fill="#ffd23f"/>
+    </g>
+    <!-- music note -->
+    <g transform="translate(200,90)" fill="#fff">
+      <ellipse cx="-15" cy="20" rx="14" ry="10" transform="rotate(-15)"/>
+      <rect x="-3" y="-10" width="4" height="34"/>
+      <path d="M 1 -10 Q 22 -8 22 12"/>
+    </g>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(60,10,60,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">MUSIC SHAPES</text>
 </svg>

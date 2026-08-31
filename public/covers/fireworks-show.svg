@@ -1,10 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#ef4444"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#0a0a0a"/>
-  <circle cx="330" cy="60" r="120" fill="#f59e0b" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#ef4444" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🎆</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">FIREWORKS-SHOW</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e1b4b"/>
+      <stop offset="1" stop-color="#0a0c18"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)">
+    <!-- burst 1 -->
+    <g transform="translate(110,90)">
+      <g stroke-linecap="round">
+        <line x1="0" y1="-50" x2="0" y2="-80" stroke="#ff4d6d" stroke-width="4"/>
+        <line x1="0" y1="50" x2="0" y2="80" stroke="#ff4d6d" stroke-width="4"/>
+        <line x1="-50" y1="0" x2="-80" y2="0" stroke="#ff4d6d" stroke-width="4"/>
+        <line x1="50" y1="0" x2="80" y2="0" stroke="#ff4d6d" stroke-width="4"/>
+        <line x1="-36" y1="-36" x2="-58" y2="-58" stroke="#ffd23f" stroke-width="4"/>
+        <line x1="36" y1="-36" x2="58" y2="-58" stroke="#ffd23f" stroke-width="4"/>
+        <line x1="-36" y1="36" x2="-58" y2="58" stroke="#ffd23f" stroke-width="4"/>
+        <line x1="36" y1="36" x2="58" y2="58" stroke="#ffd23f" stroke-width="4"/>
+      </g>
+      <circle r="8" fill="#fff7d6"/>
+    </g>
+    <!-- burst 2 -->
+    <g transform="translate(300,140)">
+      <g stroke-linecap="round">
+        <line x1="0" y1="-44" x2="0" y2="-72" stroke="#22d3ee" stroke-width="4"/>
+        <line x1="0" y1="44" x2="0" y2="72" stroke="#22d3ee" stroke-width="4"/>
+        <line x1="-44" y1="0" x2="-72" y2="0" stroke="#22d3ee" stroke-width="4"/>
+        <line x1="44" y1="0" x2="72" y2="0" stroke="#22d3ee" stroke-width="4"/>
+        <line x1="-32" y1="-32" x2="-54" y2="-54" stroke="#7CFC8A" stroke-width="4"/>
+        <line x1="32" y1="-32" x2="54" y2="-54" stroke="#7CFC8A" stroke-width="4"/>
+        <line x1="-32" y1="32" x2="-54" y2="54" stroke="#7CFC8A" stroke-width="4"/>
+        <line x1="32" y1="32" x2="54" y2="54" stroke="#7CFC8A" stroke-width="4"/>
+      </g>
+      <circle r="8" fill="#fff"/>
+    </g>
+    <!-- rockets -->
+    <path d="M 50 220 Q 80 180 110 160" stroke="#ffd23f" stroke-width="3" fill="none"/>
+    <circle cx="110" cy="160" r="3" fill="#ffd23f"/>
+    <path d="M 320 230 Q 280 200 240 200" stroke="#ff4d6d" stroke-width="3" fill="none"/>
+    <circle cx="240" cy="200" r="3" fill="#ff4d6d"/>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(5,5,20,.85)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#ffd23f" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">FIREWORKS</text>
 </svg>

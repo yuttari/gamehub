@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Snake Pro</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% 0%,#15321f,#0a160e);color:#fff;
+    display:flex;align-items:center;justify-content:center;padding:14px;overflow:hidden;touch-action:none;
+  }
+  .wrap{width:100%;max-width:860px;text-align:center;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;}
+  h1{font-size:22px;font-weight:900;color:#7CFC8A;}
+  .stats{display:flex;gap:10px;}
+  .pill{background:rgba(255,255,255,.1);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;}
+  .pill b{color:#7CFC8A;}
+  .stage{position:relative;margin:0 auto;width:100%;aspect-ratio:16/9;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:14px;overflow:hidden;}
+  canvas{display:block;width:100%;height:100%;}
+  .overlay{position:absolute;inset:0;background:rgba(8,16,10,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .25s;border-radius:14px;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay h2{font-size:28px;font-weight:900;color:#7CFC8A;}
+  .overlay p{opacity:.75;font-size:14px;max-width:340px;line-height:1.5;}
+  .btn{background:#7CFC8A;color:#06210d;border:none;border-radius:12px;padding:12px 28px;font-weight:900;font-size:16px;cursor:pointer;transition:transform .1s;}
+  .btn:active{transform:scale(.95);}
+  .hint{margin-top:10px;font-size:12px;opacity:.5;}
+  .pad{display:none;margin-top:12px;grid-template-columns:repeat(3,56px);grid-template-rows:repeat(3,56px);gap:6px;justify-content:center;}
+  .pad button{background:rgba(255,255,255,.12);border:none;border-radius:12px;color:#fff;font-size:22px;font-weight:900;}
+  .pad .up{grid-area:1/2;} .pad .left{grid-area:2/1;} .pad .down{grid-area:3/2;} .pad .right{grid-area:2/3;}
+  @media(hover:none){.pad{display:grid;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🍎 Snake Pro</h1>
+    <div class="stats">
+      <div class="pill">Score <b id="score">0</b></div>
+      <div class="pill">Best <b id="best">0</b></div>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlay" id="ov">
+      <h2 id="ovt">Ready?</h2>
+      <p id="ovp">Eat apples to grow. Grab the golden ⚡ for a speed boost!</p>
+      <button class="btn" id="start">Start Game</button>
+    </div>
+  </div>
+  <div class="pad">
+    <button class="up" data-d="up">▲</button>
+    <button class="left" data-d="left">◀</button>
+    <button class="down" data-d="down">▼</button>
+    <button class="right" data-d="right">▶</button>
+  </div>
+  <p class="hint">PC: Arrow keys / WASD　·　Mobile: D-pad　·　Hold to boost</p>
+</div>
+<script>
+(function(){
+  const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  const stage=document.getElementById('stage'),ov=document.getElementById('ov'),ovt=document.getElementById('ovt'),ovp=document.getElementById('ovp'),startBtn=document.getElementById('start');
+  const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best');
+  const COLS=24, ROWS=13;
+  let cell=0,px=0,py=0;
+  let snake,dir,next,food,boost,score=0,best=+(localStorage.getItem('snakepro')||0),running=false,timer,speed=110,boostTimer=0;
+  bestEl.textContent=best;
+
+  function resize(){
+    const w=stage.clientWidth,h=stage.clientHeight;
+    cv.width=w*devicePixelRatio;cv.height=h*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    cell=Math.min(w/COLS,h/ROWS); px=(w-cell*COLS)/2; py=(h-cell*ROWS)/2;
+  }
+  function reset(){
+    snake=[{x:8,y:6},{x:7,y:6},{x:6,y:6}]; dir={x:1,y:0}; next={x:1,y:0};
+    score=0;scoreEl.textContent=0; speed=110; boostTimer=0; running=true; ov.classList.remove('show');
+    placeFood();
+    clearInterval(timer); timer=setInterval(loop,speed);
+  }
+  function placeFood(){ while(true){ const f={x:(Math.random()*COLS)|0,y:(Math.random()*ROWS)|0}; if(!snake.some(s=>s.x===f.x&&s.y===f.y)){ food=f; break; } } }
+  function placeBoost(){ if(Math.random()<0.4 && !boost){ boost={x:(Math.random()*COLS)|0,y:(Math.random()*ROWS)|0,t:300}; } }
+  function r(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function step(){
+    dir=next; const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if(head.x<0||head.y<0||head.x>=COLS||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)) return gameOver();
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){ score+=10;scoreEl.textContent=score; placeFood(); placeBoost(); }
+    else if(boost&&head.x===boost.x&&head.y===boost.y){ score+=30;scoreEl.textContent=score; boostTimer=120; boost=null; clearInterval(timer);speed=55;timer=setInterval(loop,speed); }
+    else snake.pop();
+    if(boostTimer>0){ boostTimer--; if(boostTimer===0){ clearInterval(timer);speed=110;timer=setInterval(loop,speed);} }
+    if(boost) boost.t--;
+    if(boost&&boost.t<=0) boost=null;
+  }
+  function draw(){
+    const w=stage.clientWidth,h=stage.clientHeight; ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='rgba(255,255,255,.04)';
+    for(let i=0;i<COLS;i+=2)for(let j=0;j<ROWS;j+=2)ctx.fillRect(px+i*cell,py+j*cell,cell,cell);
+    // food (apple)
+    ctx.fillStyle='#ff4d4d'; r(px+food.x*cell+cell*0.18,py+food.y*cell+cell*0.18,cell*0.64,cell*0.64,cell*0.2); ctx.fill();
+    ctx.fillStyle='#7a3b00'; ctx.fillRect(px+food.x*cell+cell*0.46,py+food.y*cell+cell*0.06,cell*0.08,cell*0.18);
+    // boost
+    if(boost){ ctx.fillStyle='#ffe14d'; ctx.beginPath();ctx.arc(px+boost.x*cell+cell/2,py+boost.y*cell+cell/2,cell*0.3,0,7);ctx.fill();
+      ctx.fillStyle='#111';ctx.font='bold '+(cell*0.4)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('⚡',px+boost.x*cell+cell/2,py+boost.y*cell+cell/2); }
+    // snake
+    snake.forEach((p,i)=>{ const t=i/snake.length; const g=Math.round(120+135*t);
+      ctx.fillStyle=`rgb(80,${g},90)`; r(px+p.x*cell+cell*0.08,py+p.y*cell+cell*0.08,cell*0.84,cell*0.84,cell*0.3); ctx.fill(); });
+    const h2=snake[0]; ctx.fillStyle='#06210d';
+    ctx.beginPath();ctx.arc(px+h2.x*cell+cell*0.38,py+h2.y*cell+cell*0.4,cell*0.1,0,7);ctx.arc(px+h2.x*cell+cell*0.62,py+h2.y*cell+cell*0.4,cell*0.1,0,7);ctx.fill();
+  }
+  function loop(){ if(!running)return; step(); draw(); }
+  function gameOver(){ running=false; clearInterval(timer); if(score>best){best=score;localStorage.setItem('snakepro',best);bestEl.textContent=best;} ovt.textContent='Game Over';ovp.textContent='Score '+score+' · Best '+best;startBtn.textContent='Play Again';ov.classList.add('show'); }
+  function setDir(x,y){ if(x===-dir.x&&y===-dir.y)return; next={x,y}; }
+  window.addEventListener('keydown',e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],W:[0,-1],S:[0,1],A:[-1,0],D:[1,0]};if(m[e.key]){e.preventDefault();setDir(m[e.key][0],m[e.key][1]);}});
+  document.querySelectorAll('.pad button').forEach(b=>b.onclick=()=>{const m={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};setDir(m[b.dataset.d][0],m[b.dataset.d][1]);});
+  startBtn.onclick=reset;
+  window.addEventListener('resize',()=>{resize();if(!running)draw();});
+  resize();reset();draw();
+})();
+</script>
+</body>
+</html>

@@ -1,10 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff4d12"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#1b2a4a"/>
-  <circle cx="330" cy="60" r="120" fill="#ffd23f" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#ff4d12" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🧱</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">BREAKOUT</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5ec8ff"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)">
+    <!-- bricks -->
+    <g>
+      <rect x="50" y="50" width="50" height="22" rx="4" fill="#ff4d6d"/>
+      <rect x="105" y="50" width="50" height="22" rx="4" fill="#ff9f1c"/>
+      <rect x="160" y="50" width="50" height="22" rx="4" fill="#ffd23f"/>
+      <rect x="215" y="50" width="50" height="22" rx="4" fill="#52e09a"/>
+      <rect x="270" y="50" width="50" height="22" rx="4" fill="#5ec8ff"/>
+      <rect x="325" y="50" width="35" height="22" rx="4" fill="#b07dff"/>
+      <rect x="50" y="78" width="50" height="22" rx="4" fill="#ff9f1c"/>
+      <rect x="105" y="78" width="50" height="22" rx="4" fill="#ffd23f"/>
+      <rect x="160" y="78" width="50" height="22" rx="4" fill="#52e09a"/>
+      <rect x="215" y="78" width="50" height="22" rx="4" fill="#5ec8ff"/>
+      <rect x="270" y="78" width="50" height="22" rx="4" fill="#b07dff"/>
+      <rect x="325" y="78" width="35" height="22" rx="4" fill="#ff4d6d"/>
+    </g>
+    <!-- ball -->
+    <g transform="translate(200,160)">
+      <circle r="14" fill="#fff" filter="url(#sh)"/>
+      <ellipse cx="-4" cy="-4" rx="5" ry="3" fill="#fff" opacity="0.9"/>
+      <ellipse cx="2" cy="2" rx="3" ry="2" fill="#9bbcff" opacity="0.6"/>
+    </g>
+    <!-- paddle -->
+    <rect x="140" y="220" width="120" height="16" rx="8" fill="#22d3ee"/>
+    <rect x="142" y="222" width="116" height="5" rx="3" fill="#a8f4ff" opacity="0.7"/>
+  </g>
+  <!-- speed tail -->
+  <g opacity="0.7">
+    <circle cx="170" cy="160" r="9" fill="rgba(255,255,255,0.4)"/>
+    <circle cx="150" cy="170" r="6" fill="rgba(255,255,255,0.3)"/>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(20,30,80,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">BREAKOUT</text>
 </svg>

@@ -17,3 +17,17 @@ _src/
 # logs
 *.log
 npm-debug.log*
+
+# local dev / debug artifacts (never publish)
+.playwright-cli/
+sm_*.png
+sm.yaml
+test_below.js
+nul
+
+# private working documents belonging to other projects — do not publish
+_doc_extract*.txt
+数据治理*.md
+_dist/
+_fixes_delivery/
+code-report.html

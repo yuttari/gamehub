@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Screw Master · 游戏规则与逻辑梳理</title>
+<style>
+  :root{
+    --bg:#0e1320; --card:#171f30; --card2:#1d273b; --line:#2a3650;
+    --txt:#e8edf6; --sub:#9fb0c8; --accent:#ffd23f; --accent2:#6cc6ff; --green:#7ee2b8; --red:#ff7b7b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 50% -10%,#1b2740,#0a0e18 60%);color:var(--txt);line-height:1.7;padding:32px 16px 64px}
+  .wrap{max-width:920px;margin:0 auto}
+  header{text-align:center;margin-bottom:36px}
+  header h1{font-size:34px;font-weight:900;letter-spacing:.5px;
+    background:linear-gradient(120deg,#ffd23f,#ff9f1c);-webkit-background-clip:text;background-clip:text;color:transparent}
+  header p{color:var(--sub);margin-top:8px;font-size:15px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px 26px;margin-bottom:20px;
+    box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  h2{font-size:21px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  h2 .tag{font-size:12px;background:var(--accent2);color:#04121f;padding:3px 10px;border-radius:999px;font-weight:800}
+  h3{font-size:16px;margin:16px 0 8px;color:var(--accent)}
+  p,li{color:var(--sub);font-size:14.5px}
+  ul,ol{margin:8px 0 8px 22px}
+  li{margin:6px 0}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0c1322;border:1px solid var(--line);
+    padding:1px 7px;border-radius:6px;color:var(--accent2);font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px}
+  .feat{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .feat b{display:block;color:var(--txt);margin-bottom:4px;font-size:14.5px}
+  .rule{background:var(--card2);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin:10px 0}
+  .rule .n{color:var(--accent);font-weight:900;margin-right:8px}
+  .ok{color:var(--green);font-weight:700}
+  .no{color:var(--red);font-weight:700}
+  pre{background:#0b1120;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#cdd8ea;margin-top:10px}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0c1322;padding:1px 6px;border-radius:5px;color:var(--accent2);font-size:13px}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;color:var(--sub)}
+  th{background:var(--card2);color:var(--txt)}
+  .flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+  .step{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px;color:var(--txt)}
+  .arrow{color:var(--accent2);font-weight:900}
+  .note{font-size:12.5px;color:#7c8aa3;margin-top:8px}
+  footer{text-align:center;color:#5e6c84;font-size:12.5px;margin-top:30px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>🔩 Screw Master</h1>
+  <p>游戏规则与逻辑梳理 · 拧螺丝解谜（木板 + 钢板 + 螺丝）</p>
+</header>
+
+<!-- 1. 游戏目标 -->
+<section>
+  <h2><span class="tag">目标</span> 你在玩什么</h2>
+  <p>一块铺满整个画面、带有成排<b style="color:var(--txt)">钻孔</b>的木质背板，上面钉着若干块<b style="color:var(--txt)">钢制铁片</b>。
+  每块铁片由 <b style="color:var(--txt)">2 颗螺丝</b>固定。你的任务：</p>
+  <div class="flow">
+    <div class="step">① 拧下所有螺丝</div><span class="arrow">→</span>
+    <div class="step">② 让每块铁片失去支撑</div><span class="arrow">→</span>
+    <div class="step">③ 铁片自由落体坠出屏幕</div><span class="arrow">→</span>
+    <div class="step">④ 清空全部铁片 = 过关</div>
+  </div>
+  <p class="note">只有 <b style="color:var(--accent)">2 个空余主板孔</b> 可以临时存放拔下的螺丝——这是整个谜题的"资源预算"，也是难度核心。</p>
+</section>
+
+<!-- 2. 场景与元素 -->
+<section>
+  <h2><span class="tag">元素</span> 场景构成</h2>
+  <div class="grid">
+    <div class="feat"><b>🪵 木质背板</b>满屏木纹 + 暗角，板上分布着网格状的钻孔（深色孔 + 内壁阴影）。螺钉最终都落在这些孔里。</div>
+    <div class="feat"><b>🕳️ 主板钻孔</b>背板上的固定孔位。每个孔要么有螺丝、要么空着。开局恰好 2 个空孔。</div>
+    <div class="feat"><b>🔩 螺丝钉</b>把铁片固定在背板上的金属螺栓（径向高光圆头 + 六角凹槽）。被铁片盖住时半透明 + 红叉表示"够不着"。</div>
+    <div class="feat"><b>🟦 钢板 / 铁片</b>多边形金属板，6 种形状：<code>bar / L / T / tri / ell / square</code>。每块有 2 个销孔（pin），由 2 颗螺丝穿过固定。</div>
+  </div>
+  <p class="note">钢板上的两个销孔<b style="color:var(--accent)">始终可见</b>——即使螺丝被拔出，孔洞（沉头环 + 暗色内孔）也会保留在铁片上，不会消失。</p>
+</section>
+
+<!-- 3. 核心操作 -->
+<section>
+  <h2><span class="tag">操作</span> 怎么玩</h2>
+  <ul>
+    <li><b>拔出螺丝</b>：点击一颗<b>可访问</b>的螺丝 → 它"拿在手上"，跟随鼠标/手指移动。</li>
+    <li><b>安装螺丝</b>：再点击一个<b>干净的空主板孔</b> → 螺丝钉入该孔。</li>
+    <li><b>取消 / 换孔</b>：拿着螺丝时，点别处合法空孔即可改放位置。</li>
+    <li>每一步（拔 + 装）都会记入撤销栈，可 <span class="kbd">Undo</span> 回退。</li>
+  </ul>
+  <p class="note">两级操作（先点螺丝、再点空孔）是故意设计的——它让"拔哪儿、放哪儿"成为谜题本身。</p>
+</section>
+
+<!-- 4. 规则 -->
+<section>
+  <h2><span class="tag">规则</span> 核心逻辑</h2>
+
+  <div class="rule"><span class="n">R1</span><b>螺丝可访问性（accessible）</b>：一颗螺丝能拔，当且仅当它<b>没有被"仍被螺住"的铁片盖住</b>。
+    具体：如果某块铁片盖住了这颗螺丝，且这块铁片<b>至少有一颗螺丝没拔</b>（仍是"拧紧"的），则螺丝够不着 → <span class="no">不可拔</span>。
+    如果盖住它的铁片<b>两颗螺丝都已拔掉</b>（只是松脱搁在那儿），那颗螺丝仍可拔 → <span class="ok">可拔</span>。</div>
+
+  <div class="rule"><span class="n">R2</span><b>空孔可用性（isFree / plateHitsHole）</b>：拔下的螺丝只能装进<b>100% 完全裸露</b>的主板孔。
+    孔的判定范围 = 暗孔 + 外圈金属倒角（半径 18px 的圆）。只要<b>任何铁片与这个圆有任意相交</b>——完全盖住、盖住一半、盖住 1/3，或任意边缘擦到倒角圈 → 都 <span class="no">不可装</span>。
+    <b>没有 own-pin 例外</b>：铁片自己的销孔也一样，只有当铁片歪开/掉走、销孔完全露出来时才能插回；被自己（或任何铁片）挡住一点点都不行。
+    判定用铁片的<b>实时轮廓</b>（悬挂倾斜的旋转、自由落体的位移/旋转都算）——屏幕上看到什么挡着，什么就算挡。</div>
+
+  <div class="rule"><span class="n">R3</span><b>铁片掉落（releasePlates）</b>：当一块铁片<b>同时满足</b>以下三条，它才会坠离：
+    <ol type="a">
+      <li>它的 <b>2 个销孔都空了</b>（螺丝都拔出）；</li>
+      <li>它<b>正下方没有仍插着的螺丝</b>顶着它（<code>cov[i]</code> 内无螺丝）；</li>
+      <li>它<b>正下方没有未坠落的铁片</b>撑着它（<code>ov[i]</code> 内无未 gone 板）。</li>
+    </ol>
+    每帧检测，所以下层铁片一掉，上面压着的铁片会<b>级联</b>跟着掉。</div>
+
+  <div class="rule"><span class="n">R4</span><b>层级遮挡（下面挡上面）</b>：生成关卡时按<b>真实几何重叠</b>分配 layer——若两板重叠且中心 y 差 ≥ 8px，靠上的板 layer 更高。
+    <code>ov[i]</code> = 比 i 层低且与 i 重叠的板；<code>cov[i]</code> = 落在 i 多边形内的所有主板孔。这是"上面能挡住下面 / 下面能撑住上面"的数学依据。</div>
+
+  <div class="rule"><span class="n">R5</span><b>销孔永久可见</b>：铁片上的 2 个销孔在渲染时始终绘制，与螺丝是否存在无关。螺丝只是"坐在"沉头孔里；螺丝一拔，空孔保留。</div>
+
+  <div class="rule"><span class="n">R6</span><b>插回螺丝 ≠ 自动回正</b>：铁片只拔了 1 颗、挂在剩下那颗上（倾斜）时，若把那颗螺丝<b>重新插回原孔</b>，铁片会<b>保持当前倾斜姿态、被两颗螺丝冻结住</b>，<span class="no">不会自动回正成水平</span>。即：一旦铁片下垂过，它就"歪着"留在板上，直到你把两颗螺丝都拔掉让它整块坠落。这是为了游戏手感（下垂造成的歪斜不可逆），属刻意设计。</div>
+</section>
+
+<!-- 5. 物理与动画 -->
+<section>
+  <h2><span class="tag">物理</span> 单摆下垂 & 自由落体</h2>
+  <h3>① 单颗螺丝拔出 → 钟摆下垂（droop）</h3>
+  <p>当铁片只剩 1 颗螺丝时，它不再平贴，而是以<b>剩余那颗螺丝的孔为支点</b>做单摆，自由端慢慢垂下，带阻尼与轻微回弹。
+  下垂角度<b>被下方障碍钳制</b>：</p>
+  <ul>
+    <li>若下方有<b>插着的螺丝</b>或<b>未坠落的铁片</b>，自由端销孔不会跌破障碍 y − 30px，铁片就<b>搁在障碍上被挡住</b>，绝不会穿过去。</li>
+    <li>障碍一旦被清掉（螺丝拔走 / 下层铁片坠落），铁片会继续下摆。</li>
+  </ul>
+  <h3>② 两颗螺丝都拔出 → 自由落体（fall）</h3>
+  <p>两颗螺丝都空后，铁片以<b>单摆结束时的姿态</b>为起点（位移补偿 <code>ox/oy</code> 保证不跳变），做<b>纯直坠</b>：无旋转、无碎片喷射、无震屏，掉出屏幕下沿即判定消失。</p>
+  <p class="note">"位移补偿"是关键：单摆绕支点旋转，落体绕铁片中心旋转，二者支点不同会导致瞬间平移（看起来像弹起）。用 <code>ox/oy = [pv + R(rot)·(c−pv)] − c</code> 把单摆终态"折算"成落体起态，保证下落起点与单摆终点完全一致。</p>
+</section>
+
+<!-- 6. 关卡与难度 -->
+<section>
+  <h2><span class="tag">关卡</span> 生成与难度曲线</h2>
+  <p>关卡由 <code>gen_screw_levels.js</code> 程序化生成，再用独立验证器 <code>sm_verify.js</code> 跑完整 playout 确认可通关后才采纳。共 <b>8 关</b>：</p>
+  <table>
+    <tr><th>关卡</th><th>行数</th><th>板数</th><th>竖向比例</th><th>形状</th><th>空孔</th></tr>
+    <tr><td>L1</td><td>2</td><td>较少</td><td>0.35（平坦，教学）</td><td>6 种</td><td>2</td></tr>
+    <tr><td>L2 → L8</td><td>2 → 5</td><td>递增</td><td>0.35 → 0.60</td><td>6 种（竖向 23 / 横向 84）</td><td>2</td></tr>
+  </table>
+  <ul>
+    <li>每关<b>恰好 2 个空孔</b>，形成"先拆完一块、再拆下一块"的强制顺序谜题。</li>
+    <li>安全门：每块铁片<b>只覆盖自己的 2 个销孔</b>（<code>noStray</code>），既消灭死锁又根治"幻影孔"。</li>
+    <li>可解性：生成器求解器只在<b>干净孔</b>放螺丝，与游戏 <code>isFree</code> 一致 → 8/8 关保证可通关。</li>
+  </ul>
+</section>
+
+<!-- 7. 辅助 -->
+<section>
+  <h2><span class="tag">辅助</span> 其它功能</h2>
+  <div class="grid">
+    <div class="feat"><b>↩ Undo</b>每步快照回滚（最多 80 步），误操作时回到上一步。</div>
+    <div class="feat"><b>💡 Hint</b>浏览器内跑同一套 playout 求解器，从当前局面算出"下一步拔哪颗 + 放哪"，高亮提示。</div>
+    <div class="feat"><b>⟳ Restart</b>重新加载当前关卡。</div>
+    <div class="feat"><b>🔊 静音</b>程序化 Web Audio 音效（拧螺丝、钢板哐当、过关号角）+ 轻量 BGM。</div>
+  </div>
+  <p class="note">Hint 用的是与生成器同源的随机化贪心 playout（优先选能直接让铁片掉落的走法，跑 200~250 次随机重试取一条真解路径）。</p>
+</section>
+
+<!-- 8. 技术架构 -->
+<section>
+  <h2><span class="tag">技术</span> 实现要点</h2>
+  <ul>
+    <li><b>框架</b>：Next.js 14（App Router）静态导出，<code>STATIC_EXPORT=1 npm run build</code> → <code>out/</code>。</li>
+    <li><b>游戏本体</b>：<code>public/games/screw-master/index.html</code> —— 单文件 Canvas，逻辑 960×540，<code>FIT</code> 等比缩放。</li>
+    <li><b>状态</b>：<code>holes / plates / screwAt / ov / cov</code> 五个数组；每帧 <code>releasePlates()</code> 检测级联掉落。</li>
+    <li><b>几何</b>：<code>pip</code>（点在多边形内）、<code>bboxOf</code>、<code>segInt</code>、<code>polysOverlap</code> 支撑层级遮挡判定。</li>
+    <li><b>数据</b>：<code>levels.js</code> 输出 <code>window.SCREW_LEVELS</code>，每关含 <code>holes / plates{type,poly,pins,layer} / screws</code>。</li>
+  </ul>
+  <pre>// 铁片坠落条件（每帧调用）
+if (两 pin 均空 &amp;&amp; cov[i] 内无螺丝 &amp;&amp; ov[i] 内无未坠落板) {
+    p.fall = { dy:0, vy:0, rot, rotV:0, ox, oy }   // 纯直坠，无旋转
+    falling.push(p); sfxPlate();
+}</pre>
+</section>
+
+<footer>Screw Master 规则梳理 · 基于当前版本（含下垂阻挡、螺丝安装限制、销孔保留、100% 裸露孔判定（含倒角圈、无 own-pin 例外、实时轮廓）、插回螺丝不自动回正等）</footer>
+</div>
+</body>
+</html>

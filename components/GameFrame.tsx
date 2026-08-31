@@ -13,12 +13,16 @@ export default function GameFrame({
 }) {
   const [loaded, setLoaded] = useState(false);
 
+  // Append a per-build version query so the embedded game is always fetched fresh (no stale cache).
+  const ver = process.env.NEXT_PUBLIC_GAME_VER || "1";
+  const vSrc = src + (src.includes("?") ? "&" : "?") + "gv=" + ver;
+
   return (
     <div
       className={`relative w-full overflow-hidden rounded-3xl bg-black shadow-float ${className}`}
     >
-      {/* Fixed-height container: maximize the visible area, avoid cropping portrait/square games */}
-      <div className="relative h-[72vh] w-full min-h-[540px] max-h-[880px]">
+      {/* Landscape stage: height capped to be smaller than width so the play area stays wide (16:9-ish) */}
+      <div className="relative mx-auto aspect-[16/9] w-full max-h-[calc(100vh-120px)]">
         {!loaded && (
           <div className="absolute inset-0 grid place-items-center bg-surface-sunken">
             <div className="flex flex-col items-center gap-3 text-ink-400">
@@ -28,7 +32,7 @@ export default function GameFrame({
           </div>
         )}
         <iframe
-          src={src}
+          src={vSrc}
           title={title}
           loading="lazy"
           onLoad={() => setLoaded(true)}

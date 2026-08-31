@@ -1,10 +1,65 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#334155"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#05070b"/>
-  <circle cx="330" cy="60" r="120" fill="#0f172a" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#334155" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">☄️</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">ASTEROIDS</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e1b4b"/>
+      <stop offset="1" stop-color="#0a0c18"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)">
+    <!-- ship -->
+    <g transform="translate(200,150)">
+      <path d="M -22 0 L 0 -14 L 28 0 L 0 14 Z" fill="#5db8ff"/>
+      <path d="M -22 0 L 0 -14 L 28 0 Z" fill="#a8f4ff"/>
+      <circle r="4" fill="#ffd23f"/>
+      <!-- flames -->
+      <path d="M -22 0 L -36 -6 L -28 0 L -36 6 Z" fill="#ffd23f"/>
+      <path d="M -22 0 L -30 -3 L -26 0 L -30 3 Z" fill="#fff"/>
+    </g>
+    <!-- asteroids -->
+    <g transform="translate(80,80)">
+      <polygon points="-22,-14 -8,-22 10,-18 22,-4 18,12 4,22 -12,18 -22,4" fill="#7a7287"/>
+      <polygon points="-22,-14 -8,-22 10,-18 22,-4 18,12 4,22 -12,18 -22,4" fill="rgba(255,255,255,0.18)"/>
+    </g>
+    <g transform="translate(320,90)">
+      <polygon points="-26,-10 -10,-22 12,-20 24,-6 22,10 8,20 -10,16 -24,4" fill="#a05a2c"/>
+      <polygon points="-26,-10 -10,-22 12,-20 24,-6 22,10 8,20 -10,16 -24,4" fill="rgba(255,255,255,0.15)"/>
+    </g>
+    <g transform="translate(310,210)">
+      <polygon points="-18,-12 -4,-20 12,-16 20,-2 16,10 4,16 -10,14 -18,2" fill="#574f63"/>
+      <polygon points="-18,-12 -4,-20 12,-16 20,-2 16,10 4,16 -10,14 -18,2" fill="rgba(255,255,255,0.15)"/>
+    </g>
+  </g>
+  <!-- stars -->
+  <g fill="#fff">
+    <circle cx="40" cy="40" r="1.5"/>
+    <circle cx="120" cy="220" r="1.5"/>
+    <circle cx="60" cy="160" r="1"/>
+    <circle cx="370" cy="180" r="1.5"/>
+    <circle cx="370" cy="40" r="1"/>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(5,5,20,.85)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#22d3ee" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">ASTEROIDS</text>
 </svg>

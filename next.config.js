@@ -25,6 +25,13 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  // Per-build cache-buster for embedded game iframes. Inlined into client bundles at build time,
+  // so every `next build` yields a new query string on the game URL and the browser is forced to
+  // fetch a fresh copy instead of replaying a cached one.
+  env: { NEXT_PUBLIC_GAME_VER: String(Date.now()) },
+  // Export each route as a directory (game/match3/index.html) so it can be
+  // opened without the .html extension on both local preview and Cloudflare.
+  trailingSlash: true,
   // Static export mode (for sandbox/static hosting). Skips server-only headers().
   ...(isExport ? { output: "export" } : {}),
   ...(isExport

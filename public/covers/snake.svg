@@ -1,10 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#ff4d12"/><stop offset="1" stop-color="#ff703d"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#2b2440"/>
-  <circle cx="330" cy="60" r="120" fill="#ff4d12" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#ff703d" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🐍</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">SNAKE</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a7f3a0"/>
+      <stop offset="1" stop-color="#3fbf6a"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)" transform="translate(200,130)">
+    <path d="M -90 0 Q -70 -60 0 -50 Q 80 -45 90 20 Q 95 70 30 60 Q -10 55 -30 30 Q -50 5 -80 20 Q -110 35 -90 0 Z"
+          fill="#3fbf6a" stroke="#2a9d4f" stroke-width="3"/>
+    <path d="M -90 0 Q -70 -60 0 -50 Q 80 -45 90 20 Q 95 70 30 60 Q -10 55 -30 30 Q -50 5 -80 20 Q -110 35 -90 0 Z"
+          fill="url(#bg)" opacity="0"/>
+    <!-- belly stripe -->
+    <path d="M -85 -3 Q -65 -55 0 -45 Q 75 -40 85 18 Q 88 55 30 50 Q 0 45 -28 25"
+          stroke="#fff7d6" stroke-width="14" fill="none" opacity="0.5" stroke-linecap="round"/>
+    <!-- head highlight -->
+    <ellipse cx="-70" cy="-30" rx="42" ry="22" fill="#9dffc4" opacity="0.7"/>
+    <!-- eye -->
+    <circle cx="-72" cy="-35" r="9" fill="#fff"/>
+    <circle cx="-70" cy="-33" r="5" fill="#0d0f2"/>
+    <circle cx="-68" cy="-35" r="2" fill="#fff"/>
+    <!-- smile -->
+    <path d="M -95 -10 Q -85 -3 -75 -8" stroke="#0d3a1a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- tongue -->
+    <path d="M -100 -8 L -120 -10 L -110 -6 Z" fill="#ff3b5c"/>
+  </g>
+  <!-- bean -->
+  <g transform="translate(330,60)">
+    <circle r="14" fill="#ffd23f" filter="url(#sh)"/>
+    <ellipse cx="-4" cy="-4" rx="5" ry="3" fill="#fff" opacity="0.7"/>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(20,80,40,.78)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">SNAKE</text>
 </svg>

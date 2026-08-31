@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Whack-a-Mole</title>
+<style>
+* {box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:none;}
+html,body{height:100%;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 50% 0%,#1e2d52 0%,#0d0f1a 70%,#05060a 100%);color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.wrap{width:100%;height:100%;max-width:1200px;display:flex;flex-direction:column;padding:12px 16px;}
+.top{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;}
+h1{font-size:22px;font-weight:900;text-shadow:0 0 12px rgba(100,180,255,.6);}
+.pills{display:flex;gap:10px;align-items:center;}
+.pill{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;}
+.pill b{color:#ffd23f;}
+.lives{display:flex;gap:4px;align-items:center;}
+.life{width:14px;height:14px;border-radius:50%;background:linear-gradient(145deg,#ff5e7a,#ff2a4d);box-shadow:0 0 8px #ff2a4d;transition:transform .15s,opacity .15s;}
+.life.lost{transform:scale(.2);opacity:.15;box-shadow:none;background:#444;}
+.stage{flex:1 1 auto;position:relative;width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:18px;overflow:hidden;box-shadow:inset 0 0 60px rgba(80,140,255,.05);}
+canvas{display:block;width:100%;height:100%;}
+.overlay{position:absolute;inset:0;background:rgba(5,6,10,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .25s;}
+.overlay.show{opacity:1;pointer-events:auto;}
+.overlay h2{font-size:32px;font-weight:900;}
+.overlay p{opacity:.75;font-size:14px;max-width:360px;text-align:center;line-height:1.5;}
+.btn{background:linear-gradient(145deg,#ffd23f,#ff9f1c);color:#16131a;border:none;border-radius:12px;padding:13px 30px;font-weight:900;font-size:16px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🔨 Whack-a-Mole</h1>
+    <div class="pills">
+      <div class="pill">Score <b id="score">0</b></div>
+      <div class="pill">Level <b id="level">1</b></div>
+      <div class="pill">⏱ <b id="time">0</b></div>
+      <div class="lives" id="lives">
+        <span class="life"></span><span class="life"></span><span class="life"></span>
+      </div>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlay show" id="overlay">
+      <h2 id="ovTitle">Whack-a-Mole</h2>
+      <p id="ovDesc">Click / Tap the moles — avoid bombs!</p>
+      <button class="btn" id="startBtn">Start</button>
+    </div>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage');
+const LOGIC_W=960, LOGIC_H=540;
+let scale=1, W=LOGIC_W, H=LOGIC_H;
+function resize(){
+  const rect=stage.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.max(1,Math.floor(rect.width*dpr));
+  cv.height=Math.max(1,Math.floor(rect.height*dpr));
+  scale=cv.width/LOGIC_W;
+}
+function draw(){
+  ctx.save();
+  ctx.setTransform(scale,0,0,scale,0,0);   // CRITICAL: scales 960x540 logical space to fill the canvas
+  // draw everything in 0..960 x 0..540 coordinates
+  ctx.restore();
+}
+window.addEventListener('resize',()=>{resize(); if(!running)draw();});
+
+// ---- DOM refs ----
+const scoreEl=document.getElementById('score');
+const levelEl=document.getElementById('level');
+const timeEl=document.getElementById('time');
+const livesEl=document.getElementById('lives');
+const lifeSpans=[...livesEl.querySelectorAll('.life')];
+const overlay=document.getElementById('overlay');
+const ovTitle=document.getElementById('ovTitle');
+const ovDesc=document.getElementById('ovDesc');
+const startBtn=document.getElementById('startBtn');
+
+// ---- Audio ----
+let actx=null;
+function initAudio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function tone(freq,dur,type='sine',vol=0.2,slide=0){
+  if(!actx)return;
+  const t=actx.currentTime;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(1,freq*slide),t+dur);
+  g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t); o.stop(t+dur);
+}
+function noise(dur,vol){
+  if(!actx)return;
+  const t=actx.currentTime;
+  const n=actx.createBufferSource();
+  const buf=actx.createBuffer(1, Math.max(1,Math.floor(actx.sampleRate*dur)), actx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+  n.buffer=buf;
+  const g=actx.createGain();
+  g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  const f=actx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1200;
+  n.connect(f).connect(g).connect(actx.destination);
+  n.start(t); n.stop(t+dur);
+}
+const base=[261,329,392,523,659,784,1047,1319,1568,1568];
+function whackSound(combo){ const f=base[Math.min(combo,base.length-1)]; tone(f,0.12,'triangle',0.22,1.6); }
+function bombSound(){ tone(80,0.4,'sawtooth',0.3,0.4); noise(0.35,0.3); }
+function levelUpSound(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.2),i*90)); }
+
+// ---- Level config ----
+function levelConfig(lv){
+  let cols,rows;
+  if(lv>=5){cols=5;rows=4;}
+  else if(lv>=3){cols=5;rows=3;}
+  else {cols=4;rows=3;}
+  return {
+    cols,rows,
+    targetScore:200*lv,
+    timeLimit:Math.max(20,35-lv*1.5),
+    popInterval:Math.max(400,1100-lv*70),
+    moleUpTime:Math.max(500,1000-lv*60),
+    bombChance:Math.min(0.08+lv*0.03,0.30)
+  };
+}
+
+// ---- State ----
+let level=1, score=0, lives=3, combo=0, bestCombo=0;
+let running=false, gameOver=false;
+let timeLeft=0, timeTotal=0;
+let cfg=levelConfig(1);
+let nextSpawn=0, lastT=0, shakeT=0, bannerT=0, bannerText='';
+let holes=[], particles=[], floats=[];
+
+// ---- Holes ----
+function buildHoles(){
+  holes=[];
+  const cols=cfg.cols, rows=cfg.rows;
+  const top=72, bottom=LOGIC_H-18, leftM=70, rightM=LOGIC_W-70;
+  const cw=(rightM-leftM)/cols, ch=(bottom-top)/rows;
+  const r=Math.min(cw,ch)*0.42;
+  for(let ry=0;ry<rows;ry++){
+    for(let cx=0;cx<cols;cx++){
+      const x=leftM+cw*(cx+0.5);
+      const y=top+ch*(ry+0.5);
+      holes.push({x,y,r,rx:r*1.15,ry:r*0.55,type:null,active:false,pop:0,popTarget:0,downAt:0,whacked:false});
+    }
+  }
+}
+function spawnMole(){
+  const free=holes.filter(h=>!h.active);
+  if(!free.length)return;
+  const h=free[(Math.random()*free.length)|0];
+  h.type=Math.random()<cfg.bombChance?'bomb':'mole';
+  h.active=true; h.whacked=false;
+  h.pop=0; h.popTarget=1;
+  h.downAt=performance.now()+cfg.moleUpTime*(0.8+Math.random()*0.5);
+}
+
+// ---- Effects ----
+function spawnParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=2+Math.random()*4;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:1,color});
+  }
+}
+function addFloat(x,y,text,color){ floats.push({x,y,vy:-0.6,life:1,text,color}); }
+function showBanner(t){ bannerText=t; bannerT=1200; }
+
+// ---- Whack ----
+function whack(h){
+  if(h.type==='bomb'){
+    lives--; combo=0; bombSound(); shakeT=350;
+    spawnParticles(h.x,h.y,'#ff6b6b',18);
+    addFloat(h.x,h.y,'-1 LIFE','#ff5e7a');
+    if(lives<=0) endGame();
+  } else {
+    combo++; bestCombo=Math.max(bestCombo,combo);
+    const gain=10+Math.min(combo,20)*2;
+    score+=gain;
+    whackSound(combo);
+    spawnParticles(h.x,h.y,'#ffd23f',14);
+    addFloat(h.x,h.y,'+'+gain,'#ffd23f');
+    if(combo>=2) addFloat(h.x,h.y-28,'COMBO x'+combo,'#7ad7ff');
+    if(score>=cfg.targetScore) levelUp();
+  }
+  h.active=false; h.whacked=true; h.popTarget=0;
+}
+function missClick(){ if(combo>0) combo=0; }
+
+// ---- Input ----
+function onPointer(e){
+  if(!running)return;
+  e.preventDefault();
+  const rect=cv.getBoundingClientRect();
+  const x=(e.clientX-rect.left)/rect.width*LOGIC_W;
+  const y=(e.clientY-rect.top)/rect.height*LOGIC_H;
+  let hit=null;
+  for(const h of holes){
+    const dx=x-h.x, dy=y-h.y;
+    if(dx*dx+dy*dy <= h.r*h.r){ hit=h; break; }
+  }
+  if(hit && hit.active) whack(hit);
+  else missClick();
+}
+cv.addEventListener('pointerdown',onPointer);
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+
+// ---- Flow ----
+function startLevel(lv){
+  cfg=levelConfig(lv);
+  timeTotal=cfg.timeLimit; timeLeft=cfg.timeLimit;
+  buildHoles();
+  nextSpawn=performance.now()+600;
+  showBanner('LEVEL '+lv);
+}
+function startGame(){
+  level=1; score=0; lives=3; combo=0; bestCombo=0; gameOver=false;
+  startLevel(1);
+  running=true; lastT=performance.now();
+  hideOverlay();
+  requestAnimationFrame(loop);
+}
+function levelUp(){
+  levelUpSound();
+  const bonus=Math.floor(timeLeft*5);
+  score+=bonus;
+  addFloat(LOGIC_W/2,LOGIC_H/2-40,'TIME BONUS +'+bonus,'#ffd23f');
+  level++;
+  startLevel(level);
+}
+function endGame(){
+  running=false; gameOver=true;
+  showOverlay('GAME OVER','Score: '+score+'  •  Level: '+level+'  •  Best Combo: '+bestCombo,'Play Again');
+}
+
+// ---- Update / Loop ----
+function update(dt){
+  timeLeft-=dt/1000;
+  if(performance.now()>=nextSpawn){
+    spawnMole();
+    nextSpawn=performance.now()+cfg.popInterval*(0.7+Math.random()*0.6);
+  }
+  for(const h of holes){
+    h.pop+=(h.popTarget-h.pop)*Math.min(1,dt/120);
+    if(h.active && performance.now()>=h.downAt){
+      h.popTarget=0;
+      if(h.type==='mole' && !h.whacked) combo=0; // escaped
+    }
+    if(h.popTarget===0 && h.pop<0.02 && h.active){
+      h.active=false; h.type=null;
+    }
+  }
+  for(const p of particles){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.2; p.life-=dt/600; }
+  particles=particles.filter(p=>p.life>0);
+  for(const f of floats){ f.y+=f.vy*0.6; f.life-=dt/1000; }
+  floats=floats.filter(f=>f.life>0);
+  if(shakeT>0) shakeT-=dt;
+  if(bannerT>0) bannerT-=dt;
+  if(timeLeft<=0){
+    timeLeft=0;
+    if(score>=cfg.targetScore) levelUp();
+    else endGame();
+  }
+}
+function loop(t){
+  if(!running)return;
+  const dt=Math.min(50, t-lastT); lastT=t;
+  update(dt);
+  if(!running){ draw(); updateHUD(); return; }
+  draw();
+  updateHUD();
+  requestAnimationFrame(loop);
+}
+function updateHUD(){
+  scoreEl.textContent=score;
+  levelEl.textContent=level;
+  timeEl.textContent=Math.ceil(Math.max(0,timeLeft));
+  lifeSpans.forEach((s,i)=> s.classList.toggle('lost', i>=lives));
+}
+
+// ---- Drawing ----
+function draw(){
+  ctx.save();
+  ctx.setTransform(scale,0,0,scale,0,0);
+  ctx.clearRect(0,0,LOGIC_W,LOGIC_H);
+  let sx=0,sy=0;
+  if(shakeT>0){ sx=(Math.random()*2-1)*6*(shakeT/350); sy=(Math.random()*2-1)*6*(shakeT/350); }
+  ctx.save();
+  ctx.translate(sx,sy);
+  drawTimingBar();
+  for(const h of holes) drawHole(h);
+  drawParticles();
+  drawFloats();
+  if(bannerT>0) drawBanner();
+  ctx.restore();
+  ctx.restore();
+}
+function drawTimingBar(){
+  const frac=Math.max(0,timeLeft/timeTotal);
+  ctx.fillStyle='rgba(255,255,255,.08)';
+  ctx.fillRect(0,0,LOGIC_W,14);
+  const g=ctx.createLinearGradient(0,0,LOGIC_W,0);
+  g.addColorStop(0,'#7ad7ff'); g.addColorStop(1,'#ffd23f');
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,LOGIC_W*frac,14);
+}
+function drawHole(h){
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(h.x,h.y,h.rx,h.ry,0,0,Math.PI*2);
+  ctx.fillStyle='#0a0c14'; ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.stroke();
+  ctx.beginPath();
+  ctx.rect(h.x-h.r*2.5,0,h.r*5,h.y+h.ry);
+  ctx.clip();
+  const cy=h.y - h.pop*h.r*0.7;
+  if(h.type==='mole' && h.active) drawMole(h.x,cy,h.r);
+  else if(h.type==='bomb' && h.active) drawBomb(h.x,cy,h.r);
+  ctx.restore();
+  ctx.beginPath(); ctx.ellipse(h.x,h.y,h.rx,h.ry,0,0,Math.PI);
+  ctx.fillStyle='#11131d'; ctx.fill();
+  ctx.restore();
+}
+function drawMole(x,y,r){
+  ctx.fillStyle='#9b6a43';
+  ctx.beginPath(); ctx.ellipse(x,y,r*0.95,r*1.0,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#c89b6e';
+  ctx.beginPath(); ctx.ellipse(x,y+r*0.3,r*0.55,r*0.5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#222';
+  ctx.beginPath(); ctx.arc(x-r*0.35,y-r*0.2,r*0.12,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+r*0.35,y-r*0.2,r*0.12,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#ff7aa2';
+  ctx.beginPath(); ctx.arc(x,y+r*0.05,r*0.14,0,Math.PI*2); ctx.fill();
+}
+function drawBomb(x,y,r){
+  ctx.fillStyle='#1c1c1c';
+  ctx.beginPath(); ctx.arc(x,y+r*0.05,r*0.85,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.15)';
+  ctx.beginPath(); ctx.arc(x-r*0.3,y-r*0.3,r*0.18,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#a87b5a'; ctx.lineWidth=r*0.12;
+  ctx.beginPath(); ctx.moveTo(x+r*0.2,y-r*0.6);
+  ctx.quadraticCurveTo(x+r*0.6,y-r*0.9,x+r*0.4,y-r*1.1); ctx.stroke();
+  ctx.fillStyle='#ffd23f';
+  const sp=2+Math.random()*3;
+  ctx.beginPath(); ctx.arc(x+r*0.4,y-r*1.1,sp,0,Math.PI*2); ctx.fill();
+}
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha=Math.max(0,p.life);
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+function drawFloats(){
+  ctx.textAlign='center'; ctx.font='900 22px sans-serif';
+  for(const f of floats){
+    ctx.globalAlpha=Math.max(0,f.life);
+    ctx.fillStyle=f.color;
+    ctx.fillText(f.text,f.x,f.y);
+  }
+  ctx.globalAlpha=1;
+}
+function drawBanner(){
+  ctx.globalAlpha=Math.min(1,bannerT/400);
+  ctx.fillStyle='#ffd23f';
+  ctx.textAlign='center'; ctx.font='900 48px sans-serif';
+  ctx.fillText(bannerText,LOGIC_W/2,LOGIC_H/2);
+  ctx.globalAlpha=1;
+}
+
+// ---- Overlay ----
+function showOverlay(title,desc,btn){
+  ovTitle.textContent=title; ovDesc.textContent=desc; startBtn.textContent=btn;
+  overlay.classList.add('show');
+}
+function hideOverlay(){ overlay.classList.remove('show'); }
+startBtn.addEventListener('click',()=>{
+  initAudio();
+  if(actx && actx.state==='suspended') actx.resume();
+  startGame();
+});
+
+// ---- Init ----
+resize();
+buildHoles();
+draw();
+</script>
+</body>
+</html>

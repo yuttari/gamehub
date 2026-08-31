@@ -8,9 +8,9 @@ export default function SiteFooter() {
         <div>
           <div className="flex items-center gap-2">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-500 text-sm font-black text-white">
-              G
+              H
             </span>
-            <span className="text-base font-extrabold text-ink-900">GameHub</span>
+            <span className="text-base font-extrabold text-ink-900">Have Fun</span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-ink-500">
             Free online games, play instantly, no download. Curated open-source games to brighten your day.
@@ -63,7 +63,7 @@ export default function SiteFooter() {
       </div>
       <div className="border-t border-black/5 py-5">
         <p className="container-page text-center text-xs text-ink-400">
-          © {new Date().getFullYear()} GameHub. Game copyrights belong to their respective authors, used under open-source licenses.
+          © {new Date().getFullYear()} Have Fun. Game copyrights belong to their respective authors, used under open-source licenses.
         </p>
       </div>
     </footer>

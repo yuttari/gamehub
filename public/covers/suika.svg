@@ -1,10 +1,59 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#51cf66"/><stop offset="1" stop-color="#fcc419"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#fff9db"/>
-  <circle cx="330" cy="60" r="120" fill="#51cf66" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#fcc419" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🍉</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">SUIKA</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bef264"/>
+      <stop offset="1" stop-color="#3f6212"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)" transform="translate(200,150)">
+    <!-- big watermelon with face -->
+    <circle r="56" fill="#ff4d6d"/>
+    <ellipse cx="-16" cy="-20" rx="20" ry="10" fill="rgba(255,255,255,0.45)"/>
+    <ellipse cx="-18" cy="-8" rx="6" ry="9" fill="#fff"/>
+    <circle cx="-16" cy="-6" r="4" fill="#16131a"/>
+    <ellipse cx="18" cy="-8" rx="6" ry="9" fill="#fff"/>
+    <circle cx="20" cy="-6" r="4" fill="#16131a"/>
+    <path d="M -14 20 Q 0 28 14 20" stroke="#16131a" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <circle cx="-30" cy="14" r="6" fill="#ff9a73" opacity="0.7"/>
+    <circle cx="30" cy="14" r="6" fill="#ff9a73" opacity="0.7"/>
+    <!-- leaf -->
+    <path d="M -10 -54 Q 0 -68 14 -60" stroke="#3f6212" stroke-width="6" fill="#84cc16" stroke-linecap="round"/>
+  </g>
+  <!-- small fruits -->
+  <g transform="translate(80,80)">
+    <circle r="14" fill="#ffa24d"/>
+    <ellipse cx="-4" cy="-4" rx="4" ry="2" fill="#fff" opacity="0.6"/>
+  </g>
+  <g transform="translate(320,80)">
+    <circle r="11" fill="#7CFC8A"/>
+    <ellipse cx="-3" cy="-3" rx="3" ry="2" fill="#fff" opacity="0.6"/>
+  </g>
+  <g transform="translate(330,210)">
+    <ellipse rx="14" ry="11" fill="#ffd23f"/>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(30,50,12,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">SUIKA</text>
 </svg>

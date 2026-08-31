@@ -1,10 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#a78bfa"/>
-  </linearGradient></defs>
-  <rect width="400" height="300" fill="#1a1b2e"/>
-  <circle cx="330" cy="60" r="120" fill="#38bdf8" opacity="0.25"/>
-  <circle cx="60" cy="260" r="90" fill="#a78bfa" opacity="0.2"/>
-  <text x="200" y="175" font-size="110" text-anchor="middle">🟦</text>
-  <text x="200" y="248" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" opacity="0.92">TETRIS</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <radialGradient id="hl" cx="0.25" cy="0.18" r="0.85">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.28"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigsh" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="6" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.35"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg)"/>
+  <rect width="400" height="300" fill="url(#hl)"/>
+  
+  <g filter="url(#sh)">
+    <!-- background grid hint -->
+    <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
+      <line x1="0" y1="200" x2="400" y2="200"/><line x1="0" y1="230" x2="400" y2="230"/>
+      <line x1="0" y1="170" x2="400" y2="170"/>
+    </g>
+    <!-- stacked base -->
+    <g>
+      <rect x="60" y="200" width="34" height="34" rx="4" fill="#a78bfa"/>
+      <rect x="94" y="200" width="34" height="34" rx="4" fill="#a78bfa"/>
+      <rect x="128" y="200" width="34" height="34" rx="4" fill="#a78bfa"/>
+      <rect x="162" y="200" width="34" height="34" rx="4" fill="#a78bfa"/>
+      <rect x="94" y="166" width="34" height="34" rx="4" fill="#22d3ee"/>
+      <rect x="128" y="166" width="34" height="34" rx="4" fill="#22d3ee"/>
+      <rect x="60" y="166" width="34" height="34" rx="4" fill="#22d3ee"/>
+    </g>
+    <!-- falling piece (T) -->
+    <g transform="translate(230,80)">
+      <rect width="34" height="34" rx="4" fill="#ffd23f"/>
+      <rect x="34" y="0" width="34" height="34" rx="4" fill="#ffd23f"/>
+      <rect x="68" y="0" width="34" height="34" rx="4" fill="#ffd23f"/>
+      <rect x="34" y="34" width="34" height="34" rx="4" fill="#ffd23f"/>
+    </g>
+    <!-- falling piece (L) -->
+    <g transform="translate(50,70)" opacity="0.9">
+      <rect width="30" height="30" rx="4" fill="#ff4d6d"/>
+      <rect y="30" width="30" height="30" rx="4" fill="#ff4d6d"/>
+      <rect y="60" width="30" height="30" rx="4" fill="#ff4d6d"/>
+      <rect x="30" y="60" width="30" height="30" rx="4" fill="#ff4d6d"/>
+    </g>
+  </g>
+
+  <rect x="80" y="246" width="240" height="42" rx="21" fill="rgba(20,10,60,.82)" opacity="0.82"/>
+  <text x="200" y="273" font-size="19" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="2">TETRIS</text>
 </svg>

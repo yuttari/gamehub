@@ -24,9 +24,9 @@ export default function SearchPage() {
       <div className="topbar sticky top-0 z-40">
         <Link href="/" className="topbar__logo">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-500 text-sm font-black text-white">
-            G
+            H
           </span>
-          <b>GameHub</b>
+          <b>Have Fun</b>
         </Link>
         <div className="relative ml-auto w-full max-w-xs">
           <input

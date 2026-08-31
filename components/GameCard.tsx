@@ -3,7 +3,7 @@ import type { Game } from "@/lib/games";
 
 export default function GameCard({ game }: { game: Game }) {
   return (
-    <Link href={`/game/${game.slug}`} className="game-card group animate-fade-up">
+    <Link href={`/game/${game.slug}/`} className="game-card group animate-fade-up">
       <div className="game-card__thumb">
         {/* Real cover image (SVG-generated, consistent style) */}
         <img src={game.cover} alt={game.title} loading="lazy" />

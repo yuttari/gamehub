@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Fruit Catcher</title>
+<style>
+* {box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:none;}
+html,body{height:100%;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 50% 0%,#1e2d52 0%,#0d0f1a 70%,#05060a 100%);color:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.wrap{width:100%;height:100%;max-width:1200px;display:flex;flex-direction:column;padding:12px 16px;}
+.top{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 4px;}
+h1{font-size:22px;font-weight:900;text-shadow:0 0 12px rgba(100,180,255,.6);}
+.pills{display:flex;gap:10px;align-items:center;}
+.pill{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 14px;font-weight:800;font-size:14px;}
+.pill b{color:#ffd23f;}
+.lives{display:flex;gap:4px;align-items:center;}
+.life{width:14px;height:14px;border-radius:50%;background:linear-gradient(145deg,#ff5e7a,#ff2a4d);box-shadow:0 0 8px #ff2a4d;transition:transform .15s,opacity .15s;}
+.life.lost{transform:scale(.2);opacity:.15;box-shadow:none;background:#444;}
+.stage{flex:1 1 auto;position:relative;width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:18px;overflow:hidden;box-shadow:inset 0 0 60px rgba(80,140,255,.05);}
+canvas{display:block;width:100%;height:100%;}
+.overlay{position:absolute;inset:0;background:rgba(5,6,10,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .25s;}
+.overlay.show{opacity:1;pointer-events:auto;}
+.overlay h2{font-size:32px;font-weight:900;}
+.overlay p{opacity:.75;font-size:14px;max-width:360px;text-align:center;line-height:1.5;}
+.btn{background:linear-gradient(145deg,#ffd23f,#ff9f1c);color:#16131a;border:none;border-radius:12px;padding:13px 30px;font-weight:900;font-size:16px;cursor:pointer;transition:transform .1s;}
+.btn:active{transform:scale(.95);}
+.banner{position:absolute;top:42%;left:0;right:0;text-align:center;font-size:46px;font-weight:900;color:#ffd23f;text-shadow:0 0 24px rgba(255,210,63,.9);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;transform:scale(.6);}
+.banner.show{opacity:1;transform:scale(1);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🍉 Fruit Catcher</h1>
+    <div class="pills">
+      <div class="pill">Score <b id="score">0</b></div>
+      <div class="pill">Level <b id="level">1</b></div>
+      <div class="pill lives" id="lives"><span class="life"></span><span class="life"></span><span class="life"></span></div>
+    </div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="banner" id="banner">LEVEL 1</div>
+    <div class="overlay show" id="overlay">
+      <h2 id="ovTitle">Fruit Catcher</h2>
+      <p id="ovText">Catch the falling fruit in your basket. Avoid bombs! <br>PC: Mouse / Arrows　·　Mobile: Swipe</p>
+      <button class="btn" id="startBtn">Start</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage');
+const LOGIC_W=960, LOGIC_H=540;
+let scale=1, W=LOGIC_W, H=LOGIC_H;
+function resize(){
+  const rect=stage.getBoundingClientRect();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.max(1,Math.floor(rect.width*dpr));
+  cv.height=Math.max(1,Math.floor(rect.height*dpr));
+  scale=cv.width/LOGIC_W;
+}
+function draw(){
+  ctx.save();
+  ctx.setTransform(scale,0,0,scale,0,0);   // CRITICAL: scales 960x540 logical space to fill the canvas
+  // draw everything in 0..960 x 0..540 coordinates
+  ctx.restore();
+}
+window.addEventListener('resize',()=>{resize(); if(!running)draw();});
+
+const $score=document.getElementById('score');
+const $level=document.getElementById('level');
+const $lives=document.getElementById('lives').children;
+const $overlay=document.getElementById('overlay');
+const $ovTitle=document.getElementById('ovTitle');
+const $ovText=document.getElementById('ovText');
+const $startBtn=document.getElementById('startBtn');
+const $banner=document.getElementById('banner');
+
+// ---- Audio ----
+let actx=null;
+function initAudio(){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx=null; } }
+function tone(freq,dur,type,vol,slide){
+  if(!actx) return;
+  const t=actx.currentTime;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(freq,t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(1,slide),t+dur);
+  g.gain.setValueAtTime(vol||0.2,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t); o.stop(t+dur+0.02);
+}
+function noise(dur,vol){
+  if(!actx) return;
+  const t=actx.currentTime;
+  const n=Math.floor(actx.sampleRate*dur);
+  const buf=actx.createBuffer(1,n,actx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+  const src=actx.createBufferSource(); src.buffer=buf;
+  const g=actx.createGain(); g.gain.setValueAtTime(vol||0.3,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  const f=actx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1200;
+  src.connect(f); f.connect(g); g.connect(actx.destination);
+  src.start(t); src.stop(t+dur);
+}
+
+const base=[261,329,392,523,659,784,1047,1319,1568];
+function sndCatch(combo){
+  const i=Math.min(combo,base.length-1);
+  tone(base[i],0.16,'triangle',0.25,base[i]*1.5);
+}
+function sndBomb(){ tone(80,0.5,'sawtooth',0.4,30); noise(0.4,0.4); }
+function sndLevelUp(){ [392,523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'square',0.22),i*70)); }
+function sndMiss(){ tone(160,0.22,'sine',0.22,110); }
+
+// ---- Game State ----
+let running=false, frame=0;
+let score=0, level=1, lives=3, caught=0, combo=0, bestCombo=0;
+let fruits=[], particles=[], floats=[];
+let basket={x:LOGIC_W/2, w:130, h:64, y:LOGIC_H-72, trail:[]};
+let targetX=LOGIC_W/2;
+let spawnTimer=0;
+let shake=0;
+let bannerTimer=0;
+let keys={left:false,right:false};
+
+function levelConfig(lv){
+  return {
+    catchGoal: 10 + lv*3,
+    fallSpeed: 2.2*(1+lv*0.12),
+    spawnInterval: Math.max(28, 60 - lv*3),
+    bombChance: Math.min(0.05+lv*0.02,0.22),
+    goldenChance: 0.12
+  };
+}
+let cfg=levelConfig(1);
+
+const FRUITS=["🍎","🍊","🍇","🍉","🍌","🍓","🍑","🍐","🥝","🍒"];
+const FRUIT_COLORS=["#ff5e5e","#ff9f1c","#a45cff","#ff5e7a","#ffe14d","#ff4d6d","#ffb3c1","#b6ff5e","#5eff9b","#ff2a4d"];
+
+function resetGame(){
+  score=0; level=1; lives=3; caught=0; combo=0; bestCombo=0;
+  fruits=[]; particles=[]; floats=[]; frame=0; spawnTimer=0; shake=0;
+  basket.x=LOGIC_W/2; targetX=LOGIC_W/2; basket.trail=[];
+  cfg=levelConfig(1);
+  updateHUD();
+  setLives();
+}
+
+function updateHUD(){
+  $score.textContent=score;
+  $level.textContent=level;
+}
+function setLives(){
+  for(let i=0;i<3;i++){
+    $lives[i].className = i < lives ? 'life' : 'life lost';
+  }
+}
+
+// ---- Spawning ----
+function spawn(){
+  const isBomb=Math.random()<cfg.bombChance;
+  const isGold=!isBomb && Math.random()<cfg.goldenChance;
+  const idx=Math.floor(Math.random()*FRUITS.length);
+  const r=isBomb?24:(isGold?26:22);
+  fruits.push({
+    x: 40+Math.random()*(LOGIC_W-80),
+    y: -r,
+    vy: cfg.fallSpeed*(0.8+Math.random()*0.5),
+    r: r,
+    rot: Math.random()*Math.PI*2,
+    vr: (Math.random()-0.5)*0.12,
+    bomb: isBomb,
+    gold: isGold,
+    emoji: isBomb?"💣":(isGold?"🌟":FRUITS[idx]),
+    color: isBomb?"#444":(isGold?"#ffd23f":FRUIT_COLORS[idx])
+  });
+}
+
+// ---- Effects ----
+function spawnParticles(x,y,color,count,power){
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2;
+    const sp=(0.5+Math.random())*power;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,color,r:2+Math.random()*3});
+  }
+}
+function addFloat(text,x,y,color,size){
+  floats.push({text,x,y,color,size:size||22,life:1,vy:-0.7});
+}
+function doShake(amt){ shake=Math.max(shake,amt); }
+
+// ---- Input ----
+function setTarget(clientX){
+  const rect=stage.getBoundingClientRect();
+  const lx=(clientX-rect.left)/rect.width*LOGIC_W;
+  targetX=Math.max(basket.w/2,Math.min(LOGIC_W-basket.w/2,lx));
+}
+stage.addEventListener('mousemove',e=>{ if(running) setTarget(e.clientX); });
+stage.addEventListener('touchmove',e=>{ if(running&&e.touches[0]){ setTarget(e.touches[0].clientX); e.preventDefault(); } },{passive:false});
+stage.addEventListener('touchstart',e=>{ if(running&&e.touches[0]){ setTarget(e.touches[0].clientX); e.preventDefault(); } },{passive:false});
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'){keys.left=true;e.preventDefault();}
+  if(e.key==='ArrowRight'){keys.right=true;e.preventDefault();}
+});
+window.addEventListener('keyup',e=>{
+  if(e.key==='ArrowLeft')keys.left=false;
+  if(e.key==='ArrowRight')keys.right=false;
+});
+
+// ---- Life / Game over ----
+function loseLife(reason){
+  lives--; combo=0; setLives(); doShake(14);
+  if(reason==='bomb'){ sndBomb(); }
+  else { sndMiss(); }
+  if(lives<=0) gameOver();
+}
+function gameOver(){
+  running=false;
+  $ovTitle.textContent="Game Over";
+  $ovText.innerHTML="Final Score: <b style='color:#ffd23f'>"+score+"</b><br>Best Combo: "+bestCombo+" · Level "+level+"<br>Try again!";
+  $startBtn.textContent="Play Again";
+  $overlay.classList.add('show');
+}
+
+// ---- Update ----
+function update(){
+  frame++;
+  // basket movement
+  if(keys.left) targetX-=12;
+  if(keys.right) targetX+=12;
+  targetX=Math.max(basket.w/2,Math.min(LOGIC_W-basket.w/2,targetX));
+  const px=basket.x;
+  basket.x+=(targetX-basket.x)*0.35;
+  basket.trail.unshift(px); if(basket.trail.length>6) basket.trail.pop();
+
+  // spawn
+  spawnTimer--;
+  if(spawnTimer<=0){ spawn(); spawnTimer=cfg.spawnInterval; }
+
+  // fruits
+  const top=basket.y, bottom=basket.y+basket.h;
+  for(let i=fruits.length-1;i>=0;i--){
+    const f=fruits[i];
+    f.y+=f.vy; f.rot+=f.vr;
+    // catch test
+    if(f.y+f.r>=top && f.y-f.r<=bottom){
+      if(f.x>=basket.x-basket.w/2-8 && f.x<=basket.x+basket.w/2+8){
+        if(f.bomb){ spawnParticles(f.x,f.y,f.color,26,5); addFloat("BOOM!",f.x,basket.y-20,"#ff5e5e",30); loseLife('bomb'); }
+        else {
+          combo++; if(combo>bestCombo)bestCombo=combo;
+          const pts=f.gold?50:10;
+          score+=pts;
+          sndCatch(combo);
+          spawnParticles(f.x,f.y,f.color,f.gold?30:16,f.gold?5:4);
+          addFloat("+"+pts,f.x,basket.y-16,f.gold?"#ffd23f":"#b6ff5e",f.gold?28:20);
+          if(combo>=2) addFloat("Combo x"+combo,f.x,basket.y-44,"#ffd23f",18);
+          caught++;
+          if(caught>=cfg.catchGoal) levelUp();
+        }
+        fruits.splice(i,1);
+        updateHUD();
+        continue;
+      }
+    }
+    // missed (past bottom)
+    if(f.y-f.r>H){
+      if(!f.bomb){ addFloat("MISS",f.x,H-30,"#ff8888",22); loseLife('miss'); }
+      fruits.splice(i,1);
+    }
+  }
+
+  // particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.18; p.life-=0.03;
+    if(p.life<=0) particles.splice(i,1);
+  }
+  // floats
+  for(let i=floats.length-1;i>=0;i--){
+    const fl=floats[i];
+    fl.y+=fl.vy; fl.life-=0.018;
+    if(fl.life<=0) floats.splice(i,1);
+  }
+  if(shake>0) shake*=0.85; if(shake<0.4) shake=0;
+  if(bannerTimer>0){ bannerTimer--; if(bannerTimer===0) $banner.classList.remove('show'); }
+}
+
+function levelUp(){
+  level++; caught=0;
+  cfg=levelConfig(level);
+  updateHUD();
+  sndLevelUp();
+  $banner.textContent="LEVEL "+level;
+  $banner.classList.add('show');
+  bannerTimer=70;
+}
+
+// ---- Draw ----
+function drawGame(){
+  // background gradient
+  const g=ctx.createLinearGradient(0,0,0,LOGIC_H);
+  g.addColorStop(0,'#16244a'); g.addColorStop(0.5,'#101830'); g.addColorStop(1,'#0a0c16');
+  ctx.fillStyle=g; ctx.fillRect(0,0,LOGIC_W,LOGIC_H);
+  // soft glow blobs
+  ctx.save(); ctx.globalAlpha=0.10;
+  ctx.fillStyle='#5fa8ff'; ctx.beginPath(); ctx.arc(LOGIC_W*0.25,LOGIC_H*0.3,120,0,7); ctx.fill();
+  ctx.fillStyle='#ff7eb3'; ctx.beginPath(); ctx.arc(LOGIC_W*0.8,LOGIC_H*0.25,100,0,7); ctx.fill();
+  ctx.restore();
+
+  // basket trail
+  for(let i=basket.trail.length-1;i>=0;i--){
+    const tx=basket.trail[i];
+    ctx.save(); ctx.globalAlpha=0.08*(1-i/basket.trail.length);
+    drawBasket(tx); ctx.restore();
+  }
+  // basket
+  drawBasket(basket.x);
+
+  // fruits
+  for(const f of fruits){
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.rotate(f.rot);
+    if(f.gold){
+      ctx.shadowColor='#ffd23f'; ctx.shadowBlur=22;
+    } else if(f.bomb){ ctx.shadowColor='#ff2a4d'; ctx.shadowBlur=14; }
+    ctx.font=(f.r*2)+"px serif";
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(f.emoji,0,2);
+    ctx.restore();
+  }
+
+  // particles
+  for(const p of particles){
+    ctx.save(); ctx.globalAlpha=Math.max(0,p.life);
+    ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+    ctx.restore();
+  }
+  // floats
+  for(const fl of floats){
+    ctx.save(); ctx.globalAlpha=Math.max(0,fl.life);
+    ctx.fillStyle=fl.color; ctx.font="900 "+fl.size+"px -apple-system,sans-serif";
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor='rgba(0,0,0,.6)'; ctx.shadowBlur=6;
+    ctx.fillText(fl.text,fl.x,fl.y);
+    ctx.restore();
+  }
+}
+function drawBasket(x){
+  const y=basket.y, w=basket.w, h=basket.h;
+  ctx.save();
+  ctx.shadowColor='rgba(255,210,63,.5)'; ctx.shadowBlur=18;
+  const grd=ctx.createLinearGradient(0,y,0,y+h);
+  grd.addColorStop(0,'#ffcf6b'); grd.addColorStop(1,'#c9821f');
+  ctx.fillStyle=grd;
+  const inset=18;
+  ctx.beginPath();
+  ctx.moveTo(x-w/2, y);
+  ctx.lineTo(x+w/2, y);
+  ctx.lineTo(x+w/2-inset, y+h);
+  ctx.lineTo(x-w/2+inset, y+h);
+  ctx.closePath();
+  ctx.fill();
+  // rim
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#ffe9b0';
+  ctx.beginPath(); ctx.roundRect(x-w/2-4,y-7,w+8,14,7); ctx.fill();
+  ctx.restore();
+}
+
+function loop(){
+  if(running){
+    update();
+    ctx.save();
+    ctx.setTransform(scale,0,0,scale,0,0);
+    if(shake>0){ ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake); }
+    drawGame();
+    ctx.restore();
+    requestAnimationFrame(loop);
+  } else {
+    // static frame
+    ctx.save();
+    ctx.setTransform(scale,0,0,scale,0,0);
+    drawGame();
+    ctx.restore();
+  }
+}
+
+// ---- Start ----
+function start(){
+  initAudio();
+  if(actx&&actx.state==='suspended') actx.resume();
+  resetGame();
+  $overlay.classList.remove('show');
+  running=true;
+  requestAnimationFrame(loop);
+}
+$startBtn.addEventListener('click',start);
+
+// init
+resize();
+draw();
+})();
+</script>
+</body>
+</html>

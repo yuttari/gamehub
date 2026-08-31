@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2436"/>
+      <stop offset="0.6" stop-color="#131a27"/>
+      <stop offset="1" stop-color="#0c1119"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a9793f"/>
+      <stop offset="0.5" stop-color="#946a37"/>
+      <stop offset="1" stop-color="#7d5729"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8c99ad"/>
+      <stop offset="0.18" stop-color="#c3ccd8"/>
+      <stop offset="0.5" stop-color="#8b97a9"/>
+      <stop offset="0.82" stop-color="#6c7889"/>
+      <stop offset="1" stop-color="#59646f"/>
+    </linearGradient>
+    <radialGradient id="head" cx="0.34" cy="0.3" r="0.75">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.35" stop-color="#dfe6ee"/>
+      <stop offset="0.72" stop-color="#9aa6b5"/>
+      <stop offset="1" stop-color="#616d7c"/>
+    </radialGradient>
+    <filter id="sh" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="5" result="o"/>
+      <feFlood flood-color="black" flood-opacity="0.45"/>
+      <feComposite in2="o" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="400" height="300" fill="url(#sky)"/>
+
+  <!-- wooden backboard -->
+  <g filter="url(#sh)">
+    <rect x="42" y="32" width="316" height="196" rx="16" fill="#4a3320"/>
+    <rect x="48" y="38" width="304" height="184" rx="12" fill="url(#wood)"/>
+  </g>
+  <g stroke="rgba(40,25,10,0.28)" stroke-width="1.4" fill="none">
+    <path d="M48 76 Q150 70 200 76 T352 76"/>
+    <path d="M48 112 Q150 106 200 112 T352 112"/>
+    <path d="M48 148 Q150 142 200 148 T352 148"/>
+    <path d="M48 184 Q150 178 200 184 T352 184"/>
+  </g>
+
+  <!-- drilled holes -->
+  <g>
+    <circle cx="86" cy="96" r="13" fill="#6b4a25"/><circle cx="86" cy="96" r="10" fill="#241708"/>
+    <circle cx="314" cy="96" r="13" fill="#6b4a25"/><circle cx="314" cy="96" r="10" fill="#241708"/>
+    <circle cx="86" cy="164" r="13" fill="#6b4a25"/><circle cx="86" cy="164" r="10" fill="#241708"/>
+    <circle cx="314" cy="164" r="13" fill="#6b4a25"/><circle cx="314" cy="164" r="10" fill="#241708"/>
+    <circle cx="200" cy="130" r="13" fill="#6b4a25"/><circle cx="200" cy="130" r="10" fill="#241708"/>
+  </g>
+
+  <!-- steel bar bolted across the board -->
+  <g filter="url(#sh)" transform="rotate(-6 200 130)">
+    <rect x="70" y="112" width="260" height="46" rx="10" fill="url(#steel)" stroke="rgba(30,38,48,0.85)" stroke-width="2"/>
+    <rect x="70" y="112" width="260" height="18" rx="10" fill="rgba(255,255,255,0.3)"/>
+    <circle cx="83" cy="124" r="3" fill="#4d5866"/><circle cx="317" cy="124" r="3" fill="#4d5866"/>
+    <circle cx="83" cy="148" r="3" fill="#4d5866"/><circle cx="317" cy="148" r="3" fill="#4d5866"/>
+  </g>
+
+  <!-- bolts -->
+  <g filter="url(#sh)">
+    <g transform="translate(112,135)">
+      <circle r="17.5" fill="url(#head)"/>
+      <path d="M0,-9 L7.8,-4.5 L7.8,4.5 L0,9 L-7.8,4.5 L-7.8,-4.5 Z" fill="#2b323c" stroke="rgba(255,255,255,0.28)"/>
+      <ellipse cx="-5" cy="-7" rx="5" ry="2.6" fill="rgba(255,255,255,0.55)" transform="rotate(-30 -5 -7)"/>
+    </g>
+    <g transform="translate(288,135)">
+      <circle r="17.5" fill="url(#head)"/>
+      <path d="M0,-9 L7.8,-4.5 L7.8,4.5 L0,9 L-7.8,4.5 L-7.8,-4.5 Z" fill="#2b323c" stroke="rgba(255,255,255,0.28)"/>
+      <ellipse cx="-5" cy="-7" rx="5" ry="2.6" fill="rgba(255,255,255,0.55)" transform="rotate(-30 -5 -7)"/>
+    </g>
+  </g>
+
+  <rect x="72" y="246" width="256" height="42" rx="21" fill="rgba(10,14,22,0.85)"/>
+  <text x="200" y="273" font-size="20" font-weight="900" fill="#fff" text-anchor="middle"
+        font-family="'Inter','Helvetica Neue',Arial,sans-serif" letter-spacing="1">SCREW MASTER</text>
+</svg>

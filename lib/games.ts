@@ -35,7 +35,6 @@ export const categories: Category[] = [
   { slug: "io", name: "Multiplayer", emoji: "🌐" },
   { slug: "board", name: "Board", emoji: "♟️" },
   { slug: "casual", name: "Casual", emoji: "🎈" },
-  { slug: "beauty", name: "Beauty", emoji: "💄" },
   { slug: "kids", name: "Kids", emoji: "🧸" },
   { slug: "two-player", name: "2 Player", emoji: "👥" },
   { slug: "classic", name: "Classic", emoji: "🕹️" },

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Match-3</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(90% 70% at 14% 0%, rgba(140,50,205,.32), transparent 60%),
+      radial-gradient(80% 60% at 90% 8%, rgba(40,95,210,.26), transparent 55%),
+      radial-gradient(circle at 50% 112%, rgba(70,25,140,.45), transparent 60%),
+      linear-gradient(180deg,#1a0f2e,#0b0712);color:#fff;
+    display:flex;align-items:center;justify-content:center;touch-action:none;
+  }
+  .wrap{width:100%;height:100%;max-width:none;display:flex;flex-direction:column;text-align:center;padding:10px 12px;}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:10px;flex-shrink:0;}
+  h1{font-size:clamp(18px,2.2vh,26px);font-weight:900;color:#d24dff;white-space:nowrap;}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .pill{background:rgba(255,255,255,.1);border-radius:999px;padding:5px 12px;font-weight:800;font-size:clamp(11px,1.6vh,14px);}
+  .pill b{color:#d24dff;}
+  .iconbtn{background:rgba(255,255,255,.1);border:none;color:#fff;border-radius:999px;width:36px;height:36px;font-size:18px;cursor:pointer;transition:transform .1s;}
+  .iconbtn:active{transform:scale(.92);}
+  .stage{position:relative;flex:1;min-height:0;width:100%;background:
+      radial-gradient(120% 120% at 50% -10%, rgba(170,90,255,.18), transparent 55%),
+      linear-gradient(180deg,#1b1030,#0e0818);
+    border:1px solid rgba(180,120,255,.25);border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 12px 34px rgba(0,0,0,.5);}
+  .board{position:relative;display:grid;gap:4px;padding:10px;border-radius:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+    box-shadow:inset 0 0 26px rgba(120,70,200,.22), 0 0 0 1px rgba(255,255,255,.06);}
+  .cell{width:100%;height:100%;border-radius:13px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;position:relative;transition:transform .12s ease, box-shadow .12s ease;
+    background:radial-gradient(120% 120% at 50% 18%, rgba(255,255,255,.10), rgba(0,0,0,.13));
+    box-shadow:inset 0 2px 4px rgba(255,255,255,.10), inset 0 -3px 6px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.3);}
+  .cell:hover{box-shadow:inset 0 2px 4px rgba(255,255,255,.18), inset 0 -3px 6px rgba(0,0,0,.3), 0 0 12px rgba(170,90,255,.45);}
+  .cell .gem{transition:transform .12s ease, opacity .12s ease, filter .12s ease;pointer-events:none;width:64%;height:64%;
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,.45));}
+  .cell.sel{box-shadow:0 0 0 3px #fff,0 0 16px #fff;}
+  .cell.sel .gem{transform:scale(.82);}
+  /* 三段式消除：高亮放大 -> 闪光 -> 碎裂缩小 */
+  .cell.pop .gem{animation:pop .32s ease forwards;}
+  @keyframes pop{
+    0%{transform:scale(1);filter:brightness(1);}
+    30%{transform:scale(1.28);filter:brightness(2.2) drop-shadow(0 0 8px #fff);}
+    60%{transform:scale(1.28);filter:brightness(2.6);}
+    100%{transform:scale(.1);opacity:0;filter:brightness(3);}
+  }
+  /* 冰块障碍层 */
+  .ice{position:absolute;inset:0;border-radius:12px;background:linear-gradient(135deg,rgba(180,230,255,.55),rgba(120,180,240,.35));border:1.5px solid rgba(220,245,255,.8);box-shadow:inset 0 0 8px rgba(255,255,255,.6);pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:14px;backdrop-filter:blur(1px);transition:opacity .25s,transform .25s;}
+  .ice.broken{opacity:0;transform:scale(1.4);}
+  .ice::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.5) 50%,transparent 60%);}
+  .fxcanvas{position:absolute;inset:0;pointer-events:none;z-index:5;}
+  .combo{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) scale(.6);font-size:clamp(24px,6vmin,56px);font-weight:900;color:#ffd84d;text-shadow:0 0 12px #ff8a00,0 2px 4px #000;opacity:0;pointer-events:none;z-index:8;white-space:nowrap;}
+  .combo.show{animation:combo .7s ease forwards;}
+  @keyframes combo{0%{opacity:0;transform:translate(-50%,-50%) scale(.5);}25%{opacity:1;transform:translate(-50%,-50%) scale(1.15);}70%{opacity:1;transform:translate(-50%,-50%) scale(1);}100%{opacity:0;transform:translate(-50%,-58%) scale(1);}}
+  .overlay{position:absolute;inset:0;background:rgba(18,10,28,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;pointer-events:none;transition:opacity .25s;border-radius:14px;z-index:10;padding:20px;}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .overlay h2{font-size:26px;font-weight:900;color:#d24dff;text-align:center;}
+  .overlay p{opacity:.85;font-size:14px;max-width:360px;line-height:1.55;text-align:center;}
+  .stars{font-size:30px;letter-spacing:4px;}
+  .btn{background:#d24dff;color:#1a0a24;border:none;border-radius:12px;padding:11px 26px;font-weight:900;font-size:16px;cursor:pointer;transition:transform .1s;}
+  .btn:active{transform:scale(.95);}
+  .btn.alt{background:rgba(255,255,255,.16);color:#fff;}
+  .hint{margin-top:10px;font-size:12px;opacity:.55;}
+  /* 闯关庆祝效果 */
+  .celer{position:absolute;inset:0;pointer-events:none;z-index:20;}
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:15;transition:opacity .25s;}
+  .overlay.win{background:radial-gradient(circle at 50% 38%, rgba(70,24,104,.74), rgba(16,9,26,.93));}
+  .overlay.win h2{font-size:30px;background:linear-gradient(90deg,#ffd23f,#ff5ea8,#5cffea,#7dff5b);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 22px rgba(255,94,168,.45);animation:winpop .6s ease;}
+  @keyframes winpop{0%{transform:scale(.5);opacity:0;}55%{transform:scale(1.12);opacity:1;}100%{transform:scale(1);opacity:1;}}
+  .overlay.win .btn{background:linear-gradient(145deg,#ffd23f,#ff9f1c);box-shadow:0 0 22px rgba(255,160,40,.6);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🔷 Match-3</h1>
+    <div class="stats">
+      <div class="pill">Lv <b id="lv">1</b></div>
+      <div class="pill">Score <b id="score">0</b></div>
+      <div class="pill">Goal <b id="goal">500</b></div>
+      <div class="pill">Moves <b id="moves">25</b></div>
+      <div class="pill">Total <b id="total">30</b></div>
+    </div>
+    <button class="iconbtn" id="mute" title="Sound">🔊</button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="board" id="board"></div>
+    <canvas class="fxcanvas" id="fx"></canvas>
+    <div class="combo" id="combo"></div>
+    <div class="overlay show" id="ov">
+      <h2 id="ovt">Ready?</h2>
+      <p id="ovp">Swap adjacent gems to match 3+. Reach the goal score before moves run out!</p>
+      <button class="btn" id="start">Start Game</button>
+    </div>
+    <canvas class="fxcanvas celer" id="fx2"></canvas>
+    <div class="flash" id="flash"></div>
+  </div>
+  <p class="hint">Click a gem, then click a neighbor to swap. Ice blocks must be cleared by matching next to them.</p>
+</div>
+<script>
+(function(){
+  const board=document.getElementById('board'),stage=document.getElementById('stage'),fx=document.getElementById('fx'),comboEl=document.getElementById('combo'),ov=document.getElementById('ov'),ovt=document.getElementById('ovt'),ovp=document.getElementById('ovp'),startBtn=document.getElementById('start'),scoreEl=document.getElementById('score'),movesEl=document.getElementById('moves'),lvEl=document.getElementById('lv'),goalEl=document.getElementById('goal'),totalEl=document.getElementById('total'),muteBtn=document.getElementById('mute');
+  const ctx=fx.getContext('2d');
+  const fx2=document.getElementById('fx2'), ctx2=fx2.getContext('2d');
+  const flashEl=document.getElementById('flash');
+  // 8 种高度差异化的 SVG 水果/宝石：形状+颜色双重区分，辨识度拉满
+  const FRUITS=[
+    {name:'apple',  color:'#ff4d4d', svg:'<svg viewBox="0 0 100 100"><defs><radialGradient id="ag" cx="38%" cy="30%" r="78%"><stop offset="0%" stop-color="#ff9a86"/><stop offset="45%" stop-color="#ff4d4d"/><stop offset="100%" stop-color="#b81a2c"/></radialGradient></defs><path d="M50 26 C32 12 10 22 15 45 C19 63 35 80 50 85 C65 80 81 63 85 45 C90 22 68 12 50 26Z" fill="url(#ag)"/><path d="M50 26 C50 16 52 9 60 6" stroke="#7a4a22" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M60 9 C72 2 84 7 80 18 C70 18 62 15 60 9Z" fill="#43b85a"/><path d="M60 9 C68 6 76 9 76 14" stroke="#2e8b43" stroke-width="2" fill="none"/><ellipse cx="37" cy="40" rx="11" ry="7" fill="#fff" opacity="0.35" transform="rotate(-25 37 40)"/></svg>'},
+    {name:'orange', color:'#ff9f1a', svg:'<svg viewBox="0 0 100 100"><defs><radialGradient id="og" cx="38%" cy="32%" r="72%"><stop offset="0%" stop-color="#ffd27a"/><stop offset="50%" stop-color="#ff9f1a"/><stop offset="100%" stop-color="#d96a08"/></radialGradient></defs><circle cx="50" cy="54" r="38" fill="url(#og)"/><circle cx="50" cy="54" r="38" fill="none" stroke="#c8600a" stroke-width="2" opacity="0.5"/><g fill="#d96a08" opacity="0.32"><circle cx="38" cy="48" r="2"/><circle cx="62" cy="50" r="2"/><circle cx="50" cy="66" r="2"/><circle cx="44" cy="64" r="1.6"/><circle cx="58" cy="38" r="1.6"/></g><path d="M50 18 C50 12 52 8 58 6" stroke="#7a4a22" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="38" cy="41" rx="9" ry="6" fill="#fff" opacity="0.32" transform="rotate(-20 38 41)"/></svg>'},
+    {name:'grape',  color:'#9b4dff', svg:'<svg viewBox="0 0 100 100"><defs><radialGradient id="gg" cx="35%" cy="30%" r="78%"><stop offset="0%" stop-color="#c98bff"/><stop offset="55%" stop-color="#9b4dff"/><stop offset="100%" stop-color="#651cab"/></radialGradient></defs><path d="M50 30 C50 18 54 12 62 10" stroke="#7a4a22" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M62 10 C74 3 86 8 82 19 C72 19 64 16 62 10Z" fill="#43b85a"/><g fill="url(#gg)"><circle cx="38" cy="42" r="12"/><circle cx="62" cy="42" r="12"/><circle cx="50" cy="56" r="12"/><circle cx="33" cy="58" r="12"/><circle cx="67" cy="58" r="12"/><circle cx="43" cy="72" r="12"/><circle cx="57" cy="72" r="12"/><circle cx="50" cy="85" r="12"/></g><g fill="#fff" opacity="0.42"><circle cx="34" cy="38" r="3.4"/><circle cx="58" cy="38" r="3.4"/><circle cx="46" cy="52" r="3.4"/><circle cx="29" cy="54" r="3.4"/><circle cx="63" cy="54" r="3.4"/><circle cx="39" cy="68" r="3.4"/><circle cx="53" cy="68" r="3.4"/></g></svg>'},
+    {name:'blue',   color:'#3d7bff', svg:'<svg viewBox="0 0 100 100"><defs><radialGradient id="bg" cx="38%" cy="32%" r="74%"><stop offset="0%" stop-color="#7c93ff"/><stop offset="55%" stop-color="#3d5bff"/><stop offset="100%" stop-color="#1c2caa"/></radialGradient></defs><circle cx="50" cy="54" r="38" fill="url(#bg)"/><g fill="#22306e"><circle cx="50" cy="22" r="6"/><path d="M50 16 L54 30 M50 16 L46 30 M50 16 L62 22 M50 16 L38 22" stroke="#22306e" stroke-width="3"/></g><ellipse cx="40" cy="43" rx="11" ry="8" fill="#cfe0ff" opacity="0.5" transform="rotate(-20 40 43)"/></svg>'},
+    {name:'lemon',  color:'#ffe03a', svg:'<svg viewBox="0 0 100 100"><defs><radialGradient id="lg" cx="40%" cy="35%" r="76%"><stop offset="0%" stop-color="#fff7a6"/><stop offset="55%" stop-color="#ffe03a"/><stop offset="100%" stop-color="#d2af00"/></radialGradient></defs><ellipse cx="50" cy="54" rx="40" ry="28" fill="url(#lg)" transform="rotate(-20 50 54)"/><ellipse cx="50" cy="54" rx="40" ry="28" fill="none" stroke="#c9a800" stroke-width="2" opacity="0.5" transform="rotate(-20 50 54)"/><circle cx="11" cy="42" r="6" fill="#e8cf2a"/><circle cx="89" cy="66" r="6" fill="#e8cf2a"/><ellipse cx="38" cy="45" rx="10" ry="6" fill="#fff" opacity="0.42" transform="rotate(-20 38 45)"/></svg>'},
+    {name:'diamond',color:'#34e0c0', svg:'<svg viewBox="0 0 100 100"><defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9cffe9"/><stop offset="50%" stop-color="#34e0c0"/><stop offset="100%" stop-color="#129a82"/></linearGradient></defs><path d="M28 36 L50 18 L72 36 L50 86 Z" fill="url(#dg)"/><path d="M28 36 L72 36 L62 52 L38 52 Z" fill="#1fb8a0"/><path d="M28 36 L50 18 L72 36 L50 52 Z" fill="#5cffea" opacity="0.85"/><path d="M38 52 L50 86 L62 52 L50 52 Z" fill="#0f8f78"/><path d="M50 18 L50 86" stroke="#eafff9" stroke-width="1.5" opacity="0.6"/><circle cx="44" cy="40" r="3" fill="#fff" opacity="0.85"/></svg>'},
+    {name:'leaf',   color:'#3fd96b', svg:'<svg viewBox="0 0 100 100"><defs><linearGradient id="lf" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#8dffb0"/><stop offset="55%" stop-color="#3fd96b"/><stop offset="100%" stop-color="#1c9843"/></linearGradient></defs><path d="M50 86 C50 52 30 28 16 24 C20 46 36 70 50 86Z" fill="url(#lf)"/><path d="M50 86 C50 52 70 28 84 24 C80 46 64 70 50 86Z" fill="#2bbf57"/><path d="M50 86 L50 30" stroke="#157a36" stroke-width="3.5"/><path d="M50 60 L34 50 M50 70 L34 60 M50 50 L40 42" stroke="#157a36" stroke-width="2" opacity="0.6"/><ellipse cx="34" cy="41" rx="6" ry="3" fill="#fff" opacity="0.35" transform="rotate(-30 34 41)"/></svg>'},
+    {name:'star',   color:'#ff7a3d', svg:'<svg viewBox="0 0 100 100"><defs><radialGradient id="sg" cx="42%" cy="35%" r="72%"><stop offset="0%" stop-color="#ffc08a"/><stop offset="50%" stop-color="#ff7a3d"/><stop offset="100%" stop-color="#dc4d18"/></radialGradient></defs><path d="M50 16 L61 40 L88 42 L67 60 L74 86 L50 70 L26 86 L33 60 L12 42 L39 40 Z" fill="url(#sg)"/><path d="M50 16 L61 40 L88 42 L67 60 L74 86 L50 70 L26 86 L33 60 L12 42 L39 40 Z" fill="none" stroke="#dc4d18" stroke-width="2.5"/><ellipse cx="42" cy="39" rx="7" ry="4" fill="#fff" opacity="0.42" transform="rotate(-25 42 39)"/></svg>'}
+  ];
+  const ROWS=8, COLS=11; // 8×11 横向宽屏棋盘：加高两排，水果更小更密
+  let grid=[],ice=[],score=0,moves=0,level=1,target=500,totalMoves=0,sel=null,lock=false,running=false,cellSize=0;
+  let muted=localStorage.getItem('m3_mute')==='1';
+  muteBtn.textContent=muted?'🔇':'🔊';
+
+  /* ---------- 音效：Web Audio 程序化合成 ---------- */
+  let actx=null;
+  function audio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(actx&&actx.state==='suspended') actx.resume(); return actx; }
+  function beep(freq,dur,type,vol,when){
+    if(muted) return; const ac=audio(); if(!ac) return;
+    const t=ac.currentTime+(when||0);
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type=type||'sine'; o.frequency.setValueAtTime(freq,t);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol||0.18,t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+  }
+  function kick(when,vol){ if(muted) return; const ac=audio(); if(!ac) return; const t=ac.currentTime+(when||0);
+    const o=ac.createOscillator(),g=ac.createGain(); o.type='sine';
+    o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(42,t+0.12);
+    g.gain.setValueAtTime(vol||0.25,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.16);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.18);
+  }
+  function noiseBurst(dur,vol,when){ if(muted) return; const ac=audio(); if(!ac) return; const t=ac.currentTime+(when||0);
+    const n=Math.max(1,ac.sampleRate*dur|0); const buf=ac.createBuffer(1,n,ac.sampleRate); const d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.5);
+    const s=ac.createBufferSource(); s.buffer=buf; const g=ac.createGain(); g.gain.value=vol||0.12;
+    const f=ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1500; f.Q.value=0.7;
+    s.connect(f); f.connect(g); g.connect(ac.destination); s.start(t);
+  }
+  /* ---------- 背景音乐：程序化循环（chiptune 风） ---------- */
+  const bgmBeat=0.25; // 八分音符时长（BPM 120）
+  const bgmRoots=[130.81,98.00,110.00,87.31];        // C3 G2 A2 F2
+  const bgmTriads=[[130.81,164.81,196.00],[98.00,123.47,146.83],[110.00,130.81,164.81],[87.31,110.00,130.81]];
+  const bgmMel=[523.25,659.25,783.99,659.25, 587.33,698.46,880.00,698.46, 523.25,659.25,880.00,659.25, 523.25,698.46,880.00,783.99];
+  let bgm={on:false,timer:null,next:0,step:0};
+  function bgmTone(f,t,dur,type,vol){ if(muted) return; const ac=audio(); if(!ac) return;
+    const o=ac.createOscillator(),g=ac.createGain(); o.type=type; o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+  }
+  function bgmHat(t,vol){ if(muted) return; const ac=audio(); if(!ac) return;
+    const n=Math.max(1,ac.sampleRate*0.03|0); const buf=ac.createBuffer(1,n,ac.sampleRate); const d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+    const s=ac.createBufferSource(); s.buffer=buf; const g=ac.createGain(); g.gain.value=vol;
+    const f=ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=6000;
+    s.connect(f); f.connect(g); g.connect(ac.destination); s.start(t);
+  }
+  function bgmPlay(step,t){
+    if(step%4===0){ const ch=bgmTriads[(step/4)|0]; ch.forEach(f=>bgmTone(f,t,0.5,'triangle',0.04)); bgmTone(bgmRoots[(step/4)|0],t,0.5,'sine',0.055); }
+    const m=bgmMel[step]; if(m) bgmTone(m,t,0.22,'triangle',0.05);
+    if(step%2===0) bgmHat(t,0.018);
+  }
+  function bgmSched(){ const ac=audio(); if(!ac||!bgm.on) return;
+    while(bgm.next<ac.currentTime+0.12){ bgmPlay(bgm.step,bgm.next); bgm.step=(bgm.step+1)%16; bgm.next+=bgmBeat; }
+  }
+  function bgmStart(){ if(bgm.on||muted) return; const ac=audio(); if(!ac) return; bgm.on=true; bgm.next=ac.currentTime+0.08; bgm.timer=setInterval(bgmSched,25); }
+  function bgmStop(){ bgm.on=false; if(bgm.timer){ clearInterval(bgm.timer); bgm.timer=null; } }
+  const sfx={
+    swap(){ beep(520,0.08,'triangle',0.16); },
+    invalid(){ beep(180,0.18,'square',0.14); beep(120,0.2,'square',0.12,0.05); },
+    match(combo){ const base=620+Math.min(combo,8)*70; beep(base,0.12,'sine',0.2); beep(base*1.5,0.1,'sine',0.12,0.04); },
+    // 复合音：模拟语音/喊话感（用下行+上行方波堆叠出"咔啦"喊话节奏）
+    shout(notes, type='square', vol=0.2){
+      // notes: [[freq,dur,when],...] 形成喊话式节奏
+      notes.forEach(([f,d,w])=>beep(f,d,type,vol,w));
+    },
+    // 连续消除音效：低音砸地 + 和弦上行 + 噪声炸裂 + 高频闪 + 喊话尾音，连消越高越炸
+    step(combo){
+      if(combo<2){ const base=600+Math.min(combo,1)*40; beep(base,0.1,'sine',0.16); return; } // 普通单消：轻快
+      const semis=[0,4,7,12];
+      const base=392*Math.pow(2, Math.min(combo-2,14)/12); // 连消越高基音越亮
+      kick(0, 0.20 + Math.min(combo,8)*0.015);              // 砸地低音，随层级加重
+      const n=Math.min(combo,6);
+      for(let i=0;i<n;i++) beep(base*Math.pow(2,(semis[i%semis.length])/12), 0.16, 'sawtooth', 0.15, i*0.045);
+      if(combo>=3) beep(base*2, 0.12, 'triangle', 0.12, 0.05);          // 高八度闪
+      if(combo>=4) noiseBurst(0.07, 0.09+Math.min(combo-3,6)*0.015, 0); // 噪声炸裂层
+      if(combo>=6) beep(base*4, 0.10, 'triangle', 0.10, 0.12);          // 超高频亮闪
+      if(combo>=6){ const top=base*Math.pow(2,12/12);                    // 喊话起势
+        sfx.shout([[top,0.12,0.2],[top*1.25,0.14,0.32],[top*1.5,0.16,0.44]],'sawtooth',0.15); }
+      if(combo>=9){ const top=base*Math.pow(2,12/12);                    // GODLIKE 终极尾音
+        sfx.shout([[top,0.12,0.3],[top*1.25,0.14,0.42],[top*1.5,0.16,0.54],[top*2,0.2,0.7]],'sawtooth',0.18); }
+    },
+    cascade(combo){ const base=520; for(let i=0;i<Math.min(combo,6);i++) beep(base+i*110,0.1,'triangle',0.15,i*0.05); },
+    win(){ [523,659,784,1046].forEach((f,i)=>beep(f,0.18,'triangle',0.2,i*0.12)); },
+    lose(){ [440,330,247,196].forEach((f,i)=>beep(f,0.22,'sawtooth',0.16,i*0.13)); },
+    fanfare(){
+      const seq=[523.25,659.25,783.99,1046.5,1318.5]; // C5 E5 G5 C6 E6 上行号角
+      seq.forEach((f,i)=>beep(f,0.24,'triangle',0.22,i*0.11));
+      [1046.5,1318.5,1568.0].forEach((f,i)=>beep(f,0.34,'sine',0.13,i*0.24)); // 高八度钟声叠加
+      setTimeout(()=>{ beep(1568,0.45,'sine',0.16); beep(2093,0.45,'sine',0.09,0.03); }, 600); // 收尾"叮咚"
+    }
+  };
+
+  /* ---------- 布局 ---------- */
+  function size(){
+    // 横向铺满：以 stage 宽度为基准，保证棋盘横向占满；高度由 ROWS 决定
+    const gap=3, pad=8;
+    let cellW=Math.floor((stage.clientWidth-pad*2-(COLS-1)*gap)/COLS);
+    let cellH=Math.floor((stage.clientHeight-pad*2-(ROWS-1)*gap)/ROWS);
+    cellSize=Math.max(14, Math.min(cellW, cellH));
+    const totalW=cellSize*COLS+gap*(COLS-1);
+    const totalH=cellSize*ROWS+gap*(ROWS-1);
+    board.style.width=totalW+'px'; board.style.height=totalH+'px';
+    board.style.gridTemplateColumns=`repeat(${COLS},${cellSize}px)`;
+    board.style.gridTemplateRows=`repeat(${ROWS},${cellSize}px)`;
+    board.style.gap=gap+'px';
+    fx.width=stage.clientWidth; fx.height=stage.clientHeight;
+    fx2.width=stage.clientWidth; fx2.height=stage.clientHeight;
+    fx.style.width=stage.clientWidth+'px'; fx.style.height=stage.clientHeight+'px';
+    return cellSize;
+  }
+  function rnd(){ return (Math.random()*currentKinds)|0; }
+  let currentKinds=6;
+
+  /* ---------- 连锁剧本：精确控制每关连消分布 ----------
+     设计：每关有 moves 次移动机会，其中约 70% 喂出 4~8 连，并保底安排
+     一次 10+ 连消（约 50% 概率 10~11，另 50% 为 12+）。剧本用队列存储，
+     collapse() 时按队首"目标连数"生成同色糖果块，制造长连锁。 */
+  let scriptQueue=[];   // 每元素 = 该次消除期望触发的连消层数（cascade 数）
+  let megaDone=false;   // 本关 10+ 连消是否已安排
+  function buildScript(){
+    scriptQueue=[]; megaDone=false;
+    const total=levelConfig(level).moves;
+    // 75% 的移动喂 4~8 连，其余喂 3 连（保底小爽）
+    for(let i=0;i<total;i++){
+      if(Math.random()<0.75){ scriptQueue.push(4 + (Math.random()*5|0)); } // 4~8
+      else { scriptQueue.push(3); }
+    }
+    // 保底一次 10+：插入到关卡中后段（40%~80% 进度）
+    const pos = Math.max(Math.floor(total*0.4), Math.min(total-2, Math.floor(total*(0.4+Math.random()*0.4))));
+    const mega = Math.random()<0.5 ? (10 + (Math.random()*2|0)) : (12 + (Math.random()*6|0)); // 10~11 或 12~17
+    scriptQueue[pos]=mega;
+    megaDone=false;
+  }
+  function nextScriptCombo(){
+    if(scriptQueue.length){ const v=scriptQueue.shift(); if(v>=10) megaDone=true; return v; }
+    megaDone=true; // 兜底：剧本用尽后不再强求
+    return 4 + (Math.random()*5|0); // 4~8
+  }
+  function build(){
+    grid=[];ice=[];board.innerHTML='';
+    const iceSet=new Set();
+    if(level>=5){
+      const iceCount=Math.min(4+(level-5)*2,10);
+      while(iceSet.size<iceCount){ iceSet.add(((Math.random()*ROWS*COLS)|0)); }
+    }
+    for(let r=0;r<ROWS;r++){ grid[r]=[]; ice[r]=[];
+      for(let c=0;c<COLS;c++){
+        let e; do{ e=rnd(); }while((c>=2&&grid[r][c-1]===e&&grid[r][c-2]===e)||(r>=2&&grid[r-1][c]===e&&grid[r-2][c]===e));
+        grid[r][c]=e; ice[r][c]=iceSet.has(r*COLS+c);
+        const d=document.createElement('div');d.className='cell';d.dataset.r=r;d.dataset.c=c;
+        const g=document.createElement('span');g.className='gem';g.innerHTML=FRUITS[e].svg;d.appendChild(g);
+        if(ice[r][c]){ const ic=document.createElement('div');ic.className='ice';ic.textContent='❄';d.appendChild(ic); }
+        d.onclick=()=>click(r,c);
+        board.appendChild(d);
+      }
+    }
+    // 爽感兜底：确保初始局面至少存在一个可移动匹配；若没有，轻微扰动重试
+    if(!findAnyMove()){
+      const moves=findAllPotentialSwaps();
+      if(moves.length){
+        const m=moves[(Math.random()*moves.length)|0];
+        swap(m.r1,m.c1,m.r2,m.c2); // 制造一个一步可消除的局面
+      }
+    }
+  }
+  // 查找任意一个能触发消除的相邻交换
+  function findAllPotentialSwaps(){
+    const res=[];
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      if(ice[r][c]) continue;
+      [[0,1],[1,0]].forEach(([dr,dc])=>{
+        const nr=r+dr,nc=c+dc; if(nr>=ROWS||nc>=COLS||ice[nr][nc]) return;
+        swap(r,c,nr,nc); const ok=hasMatch(); swap(r,c,nr,nc);
+        if(ok) res.push({r1:r,c1:c,r2:nr,c2:nc});
+      });
+    }
+    return res;
+  }
+  function findAnyMove(){ return findAllPotentialSwaps().length>0; }
+  function cellAt(r,c){ return board.children[r*COLS+c]; }
+  function syncCell(r,c){
+    const el=cellAt(r,c); const g=el.querySelector('.gem');
+    g.innerHTML=FRUITS[grid[r][c]].svg;
+    // 冰块状态
+    const ic=el.querySelector('.ice');
+    if(ice[r][c]){ if(!ic){ const n=document.createElement('div');n.className='ice';n.textContent='❄';el.appendChild(n);} }
+    else if(ic){ ic.classList.add('broken'); setTimeout(()=>ic.remove(),260); }
+  }
+
+  /* ---------- 交互 ---------- */
+  function click(r,c){
+    if(!running||lock) return;
+    audio();
+    if(ice[r][c]) return; // 冰块格不可选
+    const el=cellAt(r,c);
+    if(!sel){ sel={r,c}; el.classList.add('sel'); return; }
+    if(sel.r===r&&sel.c===c){ sel=null; el.classList.remove('sel'); return; }
+    const adj=Math.abs(sel.r-r)+Math.abs(sel.c-c)===1;
+    if(!adj){ cellAt(sel.r,sel.c).classList.remove('sel'); sel={r,c}; el.classList.add('sel'); return; }
+    const sr=sel.r,sc=sel.c; sel=null; board.querySelectorAll('.sel').forEach(x=>x.classList.remove('sel'));
+    if(ice[sr][sc]||ice[r][c]){ sfx.invalid(); return; }
+    swap(sr,sc,r,c);
+    sfx.swap();
+    moves--; movesEl.textContent=Math.max(0,moves);
+    totalMoves--; totalEl.textContent=Math.max(0,totalMoves); // 总步数同步递减
+    if(!hasMatch()){ // 无效交换，换回（但不退还步数，避免刷步）
+      setTimeout(()=>{ swap(sr,sc,r,c); sfx.invalid(); },180);
+      return;
+    }
+    resolve(0);
+  }
+  function swap(r1,c1,r2,c2){
+    const t=grid[r1][c1]; grid[r1][c1]=grid[r2][c2]; grid[r2][c2]=t;
+    syncCell(r1,c1); syncCell(r2,c2);
+  }
+  function hasMatch(){
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const e=grid[r][c]; if(e==null) continue; let h=1,v=1,k;
+      k=c+1;while(k<COLS&&grid[r][k]===e){h++;k++;}
+      k=r+1;while(k<ROWS&&grid[k][c]===e){v++;k++;}
+      if(h>=3||v>=3) return true;
+    }
+    return false;
+  }
+
+  /* ---------- 消除 + 特效 ---------- */
+  let particles=[];
+  let confetti=[];
+  function spawnConfetti(n, center){
+    const cols=['#ff5ea8','#ffd23f','#5cffea','#7dff5b','#9b8cff','#ff8a3d','#3d7bff','#ff4d4d','#ffffff'];
+    for(let i=0;i<n;i++){
+      const top = !center || Math.random()<0.62;
+      const x = top ? Math.random()*fx2.width : fx2.width/2 + (Math.random()-0.5)*80;
+      const y = top ? -20 - Math.random()*fx2.height*0.6 : fx2.height*0.5;
+      confetti.push({
+        x, y,
+        vx: top ? (Math.random()-0.5)*2.4 : (Math.random()-0.5)*16,
+        vy: top ? 1.2 + Math.random()*3.2 : -9 - Math.random()*8,
+        rot: Math.random()*Math.PI*2, vr:(Math.random()-0.5)*0.34,
+        w: 6+Math.random()*7, h: 10+Math.random()*9,
+        color: cols[(Math.random()*cols.length)|0],
+        life: 1 + Math.random()*0.7
+      });
+    }
+  }
+  function flash(){ if(!flashEl) return; flashEl.style.opacity='0.85'; setTimeout(()=>{ flashEl.style.opacity='0'; },90); }
+  function spawnParticles(r,c,emo,power){
+    // power = 当前连消层数，层数越高粒子越多、飞得越快、体积越大
+    const rect=cellAt(r,c).getBoundingClientRect(), srect=stage.getBoundingClientRect();
+    const x=rect.left-srect.left+rect.width/2, y=rect.top-srect.top+rect.height/2;
+    const color=gemColor(emo);
+    const n=8+Math.min(power,12); // 8~20 颗
+    for(let i=0;i<n;i++){
+      const a=Math.PI*2*i/n+(Math.random()-0.5)*0.5, sp=2+Math.random()*3.5+power*0.25;
+      particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,color,r:3+Math.random()*3+power*0.3});
+    }
+  }
+  function gemColor(emo){
+    const m=['#ff4d4d','#ff9f1a','#9b4dff','#3d7bff','#ffe03a','#34e0c0','#3fd96b','#ff7a3d'];
+    return m[emo]||'#fff';
+  }
+  function fxLoop(){
+    ctx.clearRect(0,0,fx.width,fx.height);
+    for(let i=particles.length-1;i>=0;i--){
+      const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.18; p.life-=0.035;
+      if(p.life<=0){ particles.splice(i,1); continue; }
+      ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); ctx.fill();
+    }
+    // 庆祝撒花（绘制在顶层 fx2 画布）
+    ctx2.clearRect(0,0,fx2.width,fx2.height);
+    for(let i=confetti.length-1;i>=0;i--){
+      const c=confetti[i];
+      c.x+=c.vx; c.y+=c.vy; c.vy+=0.13; c.rot+=c.vr; c.life-=0.004;
+      if(c.y>fx2.height+40 || c.life<=0){ confetti.splice(i,1); continue; }
+      ctx2.save(); ctx2.translate(c.x,c.y); ctx2.rotate(c.rot);
+      ctx2.globalAlpha=Math.max(0,Math.min(1,c.life));
+      ctx2.fillStyle=c.color; ctx2.fillRect(-c.w/2,-c.h/2,c.w,c.h);
+      ctx2.restore();
+    }
+    ctx.globalAlpha=1;
+    requestAnimationFrame(fxLoop);
+  }
+  fxLoop();
+
+  function showCombo(n){
+    // 连消越高，横幅文案越炸，字号越大、颜色越亮
+    let label, color, size;
+    if(n>=10){ label='🔥 GODLIKE ×'+n; color='#ff3df0'; size='clamp(34px,9vmin,82px)'; }
+    else if(n>=8){ label='⚡ UNBELIEVABLE ×'+n; color='#ff6a3d'; size='clamp(30px,8vmin,72px)'; }
+    else if(n>=6){ label='💥 '+n+'-BALL!'; color='#ffd84d'; size='clamp(28px,7vmin,64px)'; }
+    else if(n>=4){ label='✨ '+n+' COMBO!'; color='#7dff5b'; size='clamp(26px,6.5vmin,58px)'; }
+    else { label='COMBO ×'+n; color='#ffd84d'; size='clamp(24px,6vmin,56px)'; }
+    comboEl.textContent=label;
+    comboEl.style.color=color;
+    comboEl.style.fontSize=size;
+    comboEl.style.textShadow='0 0 18px '+color+',0 2px 4px #000';
+    comboEl.classList.remove('show'); void comboEl.offsetWidth; comboEl.classList.add('show');
+    // 连消越高，棋盘背景闪同色光晕越强
+    stage.style.boxShadow='inset 0 0 '+(20+n*6)+'px '+color;
+    setTimeout(()=>{ stage.style.boxShadow=''; },260);
+  }
+
+  function resolve(combo){
+    if(combo>20){ lock=false; return; } // 连锁上限兜底，防止意外死循环
+    lock=true;
+    let matched=false, gained=0, cleared=0;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const e=grid[r][c]; if(e==null) continue; let h=1,v=1,k;
+      k=c+1;while(k<COLS&&grid[r][k]===e){h++;k++;}
+      k=r+1;while(k<ROWS&&grid[k][c]===e){v++;k++;}
+      if(h>=3){ matched=true; for(let i=0;i<h;i++){ popCell(r,c+i,e); } }
+      if(v>=3){ matched=true; for(let i=0;i<v;i++){ popCell(r+i,c,e); } }
+    }
+    function popCell(r,c,e){
+      const el=cellAt(r,c);
+      if(!el.classList.contains('pop')){
+        el.classList.add('pop'); spawnParticles(r,c,e,combo); // 传入连消层数，粒子随层增强
+        // 破冰：相邻冰块减一层（这里用一次性破解逻辑）
+        cleared++;
+      }
+      grid[r][c]=null;
+    }
+    if(matched){
+      const mult=1+combo*0.5;
+      gained=Math.round(cleared*10*mult);
+      score+=gained; scoreEl.textContent=score;
+      if(combo>=2) showCombo(combo+1);
+      sfx.match(combo); if(combo>0) sfx.cascade(combo);
+      sfx.step(combo+1); // 连续消除第3/6/9步音效阶梯
+      // 破解相邻冰块
+      breakAdjacentIce();
+      setTimeout(()=>{ collapse(); setTimeout(()=>resolve(combo+1),180); },300);
+    } else {
+      lock=false;
+      if(score>=target && running){ win(); }
+      else if(moves<=0 && running){
+        // 兜底：若本关还没出现过 10+ 连消，最后一次强制补一次 mega，保证"每关必有"
+        if(!megaDone){ forceMega(); }
+        else { lose(); }
+      }
+      else if(running && !findAnyMove()){
+        // 卡死修复：无任何可消除交换时，自动重排棋盘，避免出现"死局"
+        reshuffle();
+      }
+    }
+  }
+  // 强制制造一次 10+ 连消（用于关卡末尾兜底，确保每关都至少出现一次大连锁）
+  function forceMega(){
+    const color=rnd();
+    const c=(Math.random()*COLS)|0;
+    for(let r=0;r<ROWS;r++){ grid[r][c]=color; ice[r][c]=false; syncCell(r,c); cellAt(r,c).classList.remove('pop'); }
+    megaDone=true;
+    resolve(0);
+  }
+  // 死局时重新打乱：保留当前水果种类，随机重排直到存在可消除步
+  function reshuffle(){
+    let flat=[];
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(!ice[r][c]) flat.push(grid[r][c]);
+    // Fisher-Yates 洗牌
+    for(let i=flat.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; const t=flat[i];flat[i]=flat[j];flat[j]=t; }
+    let k=0;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) if(!ice[r][c]){ grid[r][c]=flat[k++]; syncCell(r,c); }
+    // 洗牌后若仍有预存匹配或仍无步，递归再洗（最多3次）
+    if(hasMatch()){ resolve(0); return; }
+    if(!findAnyMove()){ if((reshuffle._n=(reshuffle._n||0)+1)<3){ reshuffle._n=0; reshuffle(); } }
+    reshuffle._n=0;
+  }
+  function breakAdjacentIce(){
+    const toBreak=[];
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      if(ice[r][c] && grid[r][c]==null) toBreak.push([r,c]);
+    }
+    // 同时检查消除格四邻
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      if(grid[r][c]==null){
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{
+          const nr=r+dr,nc=c+dc; if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&ice[nr][nc]) toBreak.push([nr,nc]);
+        });
+      }
+    }
+    toBreak.forEach(([r,c])=>{ ice[r][c]=false; syncCell(r,c); });
+  }
+  function collapse(){
+    // 取本次期望连数（由剧本控制）：在随机列顶部铺一段同色糖果，制造可控长连锁
+    const expect = nextScriptCombo();
+    // 选 1~2 列作为"主舞台"，在其顶部放 expect 长度的同色段，并保证下方已有一层同色承接
+    const stageCols=[];
+    const c1=(Math.random()*COLS)|0; stageCols.push(c1);
+    // 10+ 连消用双列舞台交叉铺设，确保连锁层数够长
+    if(expect>=10 || (expect>=8 && Math.random()<0.5)){ let c2=(c1+1+((Math.random()*(COLS-1))|0))%COLS; stageCols.push(c2); }
+
+    for(let c=0;c<COLS;c++){
+      let col=[]; for(let r=ROWS-1;r>=0;r--) if(grid[r][c]!==null) col.push(grid[r][c]);
+      const isStage = stageCols.includes(c);
+      if(isStage){
+        // 主舞台：在底部先放一层"承接色"，顶部铺 expect 段同色糖果
+        const color = rnd();
+        // 确保底部至少有 1 个同色作为触发基础（若原列顶无同色则补 1 个）
+        if(col.length<ROWS) col.push(color);             // 顶部第1个 = 承接
+        for(let i=0;i<Math.min(expect-1, ROWS-1);i++) col.push(color); // 再叠 expect-1 个同色 → 顶部 expect 连
+        // 其余空间用随机填，但避免与承接色在顶部外形成意外连（已自然）
+        while(col.length<ROWS) col.push(rnd());
+      } else {
+        // 非舞台列：维持 55% 接龙概率，制造自然 3~4 连
+        while(col.length<ROWS){
+          let e;
+          if(col.length>=2 && Math.random()<0.55){
+            e = col[col.length-1-Math.floor(Math.random()*2)];
+          } else { e=rnd(); }
+          col.push(e);
+        }
+      }
+      for(let r=ROWS-1;r>=0;r--){ grid[r][c]=col[ROWS-1-r]; syncCell(r,c); cellAt(r,c).classList.remove('pop'); }
+    }
+  }
+
+  /* ---------- 关卡与结算 ---------- */
+  function levelConfig(lv){
+    currentKinds = lv>=5?7 : 6; // 种类控制在 6~7，过多会降低匹配爽感
+    // 升级机制：连消爽但过关门槛随关卡显著提高，要求玩家多点点才升级
+    // 步数：前期 30，每 3 关 -2，下限 18；总步数限制 = 步数 × 1.5（给容错）
+    const m = Math.max(18, 30 - Math.floor((lv-1)/3)*2);
+    // 目标分：lv1=1500，之后每关 +800，逼迫多消才升级
+    const goal = 1500 + (lv-1)*800;
+    return {moves:m, goal};
+  }
+  function totalFor(moves){ return Math.round(moves*1.5); } // 总步数限制 = 步数×1.5
+  function win(){
+    running=false; bgmStop(); sfx.fanfare();
+    spawnConfetti(150, true); flash();
+    const stars = moves>=Math.floor(levelConfig(level).moves*0.4)?3 : moves>0?2 : 1;
+    ovt.textContent='🎉 LEVEL '+level+' CLEAR! 🎉';
+    ovp.innerHTML='<div style="font-size:18px;color:#ffd23f;font-weight:900;margin-bottom:8px;letter-spacing:1px;">恭喜升级！🎊</div>Score <b style="color:#d24dff">'+score+'</b> · Goal '+target+'<div class="stars">'+( '⭐'.repeat(stars) )+'</div>';
+    startBtn.textContent='Next Level →'; startBtn.onclick=nextLevel;
+    ov.classList.add('show'); ov.classList.add('win');
+  }
+  function lose(){
+    running=false; bgmStop(); sfx.lose();
+    ovt.textContent='Out of Moves';
+    ovp.innerHTML='You reached <b style="color:#d24dff">'+score+'</b> / '+target+'. Try again!';
+    startBtn.textContent='Retry'; startBtn.onclick=reset; ov.classList.remove('win');
+    ov.classList.add('show');
+  }
+  function nextLevel(){ if(level<50) level++; reset(); } // 关卡上限 50
+  function reset(){
+    const cfg=levelConfig(level);
+    target=cfg.goal; moves=cfg.moves; score=0;
+    totalMoves=totalFor(cfg.moves); // 总步数限制
+    lvEl.textContent=level; goalEl.textContent=target; scoreEl.textContent=0; movesEl.textContent=moves;
+    totalEl.textContent=totalMoves;
+    sel=null; lock=false; running=true; particles=[]; confetti=[]; ctx2.clearRect(0,0,fx2.width,fx2.height);
+    audio(); if(!muted) bgmStart(); // 启动循环背景音乐
+    megaDone=false;
+    buildScript(); // 构建本关连锁剧本
+    ov.classList.remove('show'); ov.classList.remove('win');
+    if(!size()){ requestAnimationFrame(()=>{ size(); build(); if(hasMatch()) resolve(0); }); }
+    else { build(); if(hasMatch()) resolve(0); }
+  }
+  startBtn.onclick=reset;
+  function init(){
+    if(size()){ build(); } else { requestAnimationFrame(function f(){ if(size()){ build(); } else { requestAnimationFrame(f); } }); }
+  }
+  window.addEventListener('resize',()=>{ if(running||ov.classList.contains('show')){ size(); } });
+  muteBtn.onclick=()=>{ muted=!muted; muteBtn.textContent=muted?'🔇':'🔊'; localStorage.setItem('m3_mute',muted?'1':'0'); if(!muted) audio(); if(muted) bgmStop(); else if(running) bgmStart(); };
+  init();
+})();
+</script>
+</body>
+</html>

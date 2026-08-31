@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy Policy & Licenses",
   description:
-    "GameHub privacy policy, cookie and advertising disclosure, and open-source license notices.",
+    "Have Fun privacy policy, cookie and advertising disclosure, and open-source license notices.",
 };
 
 export default function PrivacyPolicy() {
@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
       <section id="privacy" className="mt-10 scroll-mt-24">
         <h2 className="text-xl font-bold text-ink-900">1. Information we collect</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
-          GameHub is a static game portal. We do not require accounts and do not
+          Have Fun is a static game portal. We do not require accounts and do not
           knowingly collect personal information such as names, emails, or payment
           details. We may collect anonymous, aggregated usage data (such as page
           views and game plays) through privacy-friendly analytics.
@@ -56,14 +56,14 @@ export default function PrivacyPolicy() {
         <h2 className="text-xl font-bold text-ink-900">4. Contact</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
           Questions about this policy? Contact us at{" "}
-          <span className="font-semibold text-ink-800">privacy@gamehub.example</span>.
+          <span className="font-semibold text-ink-800">privacy@havefun.example</span>.
         </p>
       </section>
 
       <section id="license" className="mt-10 scroll-mt-24 border-t border-black/5 pt-8">
         <h2 className="text-xl font-bold text-ink-900">Open-source licenses</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
-          All games on GameHub are either self-developed or redistributed under
+          All games on Have Fun are either self-developed or redistributed under
           permissive open-source licenses (MIT / BSD-3-Clause). Credit and license
           notices are preserved in each game&apos;s source. No copyrighted or
           proprietary games are hosted on this site.

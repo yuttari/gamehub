@@ -16,7 +16,7 @@ export default function HomePage() {
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-500 text-sm font-black text-white">
             G
           </span>
-          <b>GameHub</b>
+          <b>Have Fun</b>
         </Link>
         <Link href="/more" className="topbar__search">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">

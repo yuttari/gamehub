@@ -14,10 +14,10 @@ export default function SiteHeader() {
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-lg font-black text-white shadow-float">
-            G
+            H
           </span>
           <span className="hidden text-lg font-extrabold tracking-tight text-ink-900 sm:block">
-            GameHub
+            Have Fun
           </span>
         </Link>
 

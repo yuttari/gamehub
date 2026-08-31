@@ -19,9 +19,9 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
       <div className="topbar sticky top-0 z-40">
         <Link href="/" className="topbar__logo">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-500 text-sm font-black text-white">
-            G
+            H
           </span>
-          <b>GameHub</b>
+          <b>Have Fun</b>
         </Link>
         <Link href="/more" className="topbar__search">
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
