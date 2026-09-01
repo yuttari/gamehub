@@ -262,10 +262,13 @@ function accessible(h){
     const p=plates[pi];
     if(p.pins.indexOf(h)>=0) continue;                 // the screw pins this very plate
     /* A plate lying on top of a screw normally hides it. But if that plate has already come
-       loose (both its own screws out) it is only RESTING on the screw head, so the screw can
-       still be pulled and the plate drops the rest of the way. Without this exception a screw
-       parked under a plate could never be removed again and the plate would stick forever. */
-    if(!p.pins.every(x=>!screwAt[x])) return false;
+       loose (both its own screws out, OR it is hanging on its last screw — its weight is now
+       carried by the pivot, not by anything below it) then the screw under the loose end is
+       still reachable: pulling it lets the hanging plate drop the rest of the way. Without
+       these two exceptions a screw parked under a plate could never be removed again and the
+       plate would stick forever. */
+    const looseNow = p.hung || !p.pins.every(x=>!screwAt[x]);
+    if(!looseNow) return false;
   }
   return true;
 }
@@ -293,60 +296,140 @@ function platesLeft(){ return plates.filter(p=>!p.gone).length; }
    the plate would land on as it falls, and what stops a drooping plate from sliding through.
    It is deliberately NOT the same as "covered by" (geometric overlap) — a plate sitting in the
    next row directly under another is a support even though their polygons never touch. */
-function belowSupportY(i, dy, oy){
-  const b=bboxOf(plates[i].poly);
-  const bot=b.y1 + (dy||0) + (oy||0);
-  const m=2; let top=1e9;
-  const ign=plates[i].fall && plates[i].fall.ignore;   // screws it has already slid off
+/* Horizontal tolerance when deciding whether a screw / plate lies "under" a sheet. Wide enough
+   to catch the row directly below even if the falling sheet is slightly offset (f.ox carried
+   over from a sag pose), narrow enough not to grab the neighbouring column. Sheets that land
+   off-centre slide off via the tipping logic, so a generous margin no longer freezes them. */
+const SUPPORT_M=10;
+/* Single source of truth: which standing screws the plate at index i ACTUALLY touches in its
+   current pose (rotation + offset). Built from curPoly() — i.e. the exact same outline the player
+   sees — so a tilted sheet resting on one screw and one plate ledge shows exactly those two
+   contacts, and nothing else. Used by belowSupportY, supportScrewsAt and tippingDir below.
+   The fall-ignore list is applied here so a screw the plate already slid off stops blocking it
+   from falling past (the same role it always had, just at the right geometric layer). */
+function restContacts(i){
+  const p=plates[i];
+  const poly=curPoly(p);                  // live outline (drooped or falling)
+  const ign=p.fall && p.fall.ignore;
+  const out=[];                           // [{h, x, y, dist}]
   for(let h=0;h<holes.length;h++){
     if(!screwAt[h]) continue;
     if(ign && ign.indexOf(h)>=0) continue;
+    /* A screw that PINNED this plate is not a support it rests on — it is a fastener that held
+       it to the board. Once the plate has swung off it (hung) or is falling, that screw merely
+       fills the backboard hole underneath; it does NOT thread through the plate any more, so it
+       cannot catch or prop the plate. Counting it as a contact is exactly what froze a plate
+       after "pull A -> swing on B -> put A back -> pull B": restContacts saw A's centre inside
+       the rotated outline, reported it as a prop, and the plate parked on its own ghost screw
+       forever instead of falling. */
+    if(p.pins.indexOf(h)>=0) continue;
     const hp=holes[h];
-    if(hp.x>=b.x0-m && hp.x<=b.x1+m && hp.y>bot+1) top=Math.min(top, hp.y);
+    // The plate catches on a screw head two ways:
+    // (a) Euclidean: screw centre is inside the polygon or within SCREW_HEAD_R of an edge
+    //     — handles tilted plates where the contact is a slanted side graze
+    // (b) Vertical: the screw head top (hp.y - SCREW_HEAD_R) is ABOVE or AT the plate bottom,
+    //     and the screw centre x lies within the plate's horizontal span. This covers the
+    //     normal "plate sits on top of a screw head" pose. Critically, the screw head must
+    //     NOT be deep below the plate (where the plate has already passed through it on its
+    //     way down) — in that case the plate is no longer resting on the head, it is falling
+    //     past it.
+    const euc = pointPolyDist(hp.x,hp.y,poly);
+    const lb  = bboxOf(poly);
+    const plateBottom = lb.y1;
+    const screwTop    = hp.y - SCREW_HEAD_R;   // top of the cylinder's visible cap
+    const inSpan = hp.x >= lb.x0 - SCREW_HEAD_R && hp.x <= lb.x1 + SCREW_HEAD_R;
+    /* screwTop >= plateBottom means the head's top is at or above the plate's bottom (still
+       touching or in the gap above it). If the head is below the plate (screwTop < plateBottom)
+       the plate has already passed through it — no contact. */
+    const vertDist = (inSpan && screwTop >= plateBottom) ? (screwTop - plateBottom) : 1e9;
+    const dist = Math.min(euc, vertDist);
+    if(dist <= SCREW_HEAD_R) out.push({h, x:hp.x, y:hp.y, dist});
   }
+  return out;
+}
+function belowSupportY(i, totalDy){  // totalDy = oy + dy — the full vertical offset applied to curPoly
+  /* Top of the highest standing screw or plate ledge that physically contacts this plate's
+     current live outline. Falls back to the nearest plate ledge below (a real surface to land
+     on) when no screw is currently in contact — covers the case where the plate was carried
+     sideways clear of the screw head it was resting on. */
+  const cs=restContacts(i);
+  let top=1e9;
+  for(const c of cs) if(c.y < top) top = c.y;
+  // A standing screw that is NOT yet in contact but is positioned to catch the plate when it
+  // falls — the screw's x lies inside the plate's current horizontal span and the screw sits
+  // below the plate's live bottom edge. Without this fallback releasePlates would think the
+  // plate has nothing under it on the very first frame it becomes free above an empty row, and
+  // the falling loop then re-detects the same screw a frame later, producing a 1-frame "free
+  // fall" gap. Treat it as a support so the plate starts dropped (vy=0) directly onto the head.
+  if(cs.length===0){
+    const p=plates[i];
+    const ign=p.fall && p.fall.ignore;
+    const poly=curPoly(p);
+    const lb=bboxOf(poly);
+    for(let h=0;h<holes.length;h++){
+      if(!screwAt[h]) continue;
+      if(ign && ign.indexOf(h)>=0) continue;
+      if(p.pins.indexOf(h)>=0) continue;
+      const hp=holes[h];
+      if(hp.x >= lb.x0-SUPPORT_M && hp.x <= lb.x1+SUPPORT_M && hp.y > lb.y1){
+        if(hp.y < top) top = hp.y;
+      }
+    }
+  }
+  // plate ledges underneath — any plate that physically touches this one and has a smaller layer
+  // (lies BELOW in the stacking order). Its top edge is the surface to land on.
+  const poly=curPoly(plates[i]);
   for(let s=0;s<plates.length;s++){
-    if(s===i||plates[s].gone||plates[s].fall) continue;  // a falling plate is not a solid support yet
-    const sb=bboxOf(plates[s].poly);
-    if(sb.x0<=b.x1+m && sb.x1>=b.x0-m && sb.y0>bot+1) top=Math.min(top, sb.y0);
+    if(s===i||plates[s].gone||plates[s].fall) continue;
+    if(plates[s].layer >= plates[i].layer) continue;
+    if(polysOverlap(poly, curPoly(plates[s]))){
+      const sb=bboxOf(plates[s].poly);
+      if(sb.y0 < top) top = sb.y0;
+    }
   }
   return top;
 }
 /* The standing screws a falling plate would currently touch at its lowest contact row. */
-function supportScrewsAt(i, dy, oy){
-  const b=bboxOf(plates[i].poly);
-  const bot=b.y1 + (dy||0) + (oy||0);
-  const m=2; let top=1e9, list=[];
-  for(let h=0;h<holes.length;h++){
-    if(!screwAt[h]) continue;
-    const hp=holes[h];
-    if(hp.x>=b.x0-m && hp.x<=b.x1+m && hp.y>bot+1){
-      if(hp.y<top-0.5){ top=hp.y; list=[h]; }
-      else if(Math.abs(hp.y-top)<=0.5) list.push(h);
-    }
-  }
-  return list;
+function supportScrewsAt(i, totalDy){
+  const cs=restContacts(i);
+  if(!cs.length) return [];
+  // closest row wins
+  cs.sort((a,b)=>a.y-b.y);
+  const top=cs[0].y;
+  return cs.filter(c=>Math.abs(c.y-top)<=0.5).map(c=>c.h);
 }
 /* Balancing on a screw head: 0 = it balances, -1 / +1 = it tips and slides off to that side.
-   A plate only balances on a screw head when its own centre of mass sits between the heads that
-   hold it. Catch it on a screw to the far left or far right and the heavy side simply slides off
-   the head and the plate carries on falling — which is what actually happens with a real sheet
-   of metal dropped onto a bolt. If it is resting on another PLATE (a real ledge) it stays put. */
-function tippingDir(i, dy, oy){
-  const list=supportScrewsAt(i,dy,oy);
-  if(!list.length) return 0;
-  const b=bboxOf(plates[i].poly);
-  const bot=b.y1 + (dy||0) + (oy||0);
-  const m=2; let plateTop=1e9;
-  for(let s=0;s<plates.length;s++){
-    if(s===i||plates[s].gone||plates[s].fall) continue;
-    const sb=bboxOf(plates[s].poly);
-    if(sb.x0<=b.x1+m && sb.x1>=b.x0-m && sb.y0>bot+1) plateTop=Math.min(plateTop, sb.y0);
+   A plate only balances on the props it ACTUALLY touches — using "every prop underneath" made
+   a plate freeze / tip from screws it was nowhere near. Centre of mass is computed in the live
+   pose (post-rotation, post-ox) so a tilted plate is judged by where its weight actually is. */
+function tippingDir(i, totalDy){
+  const p=plates[i];
+  const cs=restContacts(i);
+  if(!cs.length){
+    // no screw contact: if a plate ledge is directly under, balance against the REAL contact
+    // zone (the overlap of the two outlines) — catching only the corner of the plate below
+    // with the weight past it means the sheet tips, same as catching a screw on its edge
+    const poly=curPoly(p);
+    const lb=bboxOf(poly);
+    const cx=(lb.x0+lb.x1)/2;
+    for(let s=0;s<plates.length;s++){
+      if(s===i||plates[s].gone||plates[s].fall) continue;
+      if(plates[s].layer >= p.layer) continue;
+      if(polysOverlap(poly, curPoly(plates[s]))){
+        const sb=bboxOf(plates[s].poly);
+        const ox0=Math.max(lb.x0,sb.x0)-6, ox1=Math.min(lb.x1,sb.x1)+6;
+        if(cx<ox0) return -1;
+        if(cx>ox1) return 1;
+        return 0;
+      }
+    }
+    return 0;
   }
-  let screwTop=1e9; for(const h of list) screwTop=Math.min(screwTop,holes[h].y);
-  if(plateTop<=screwTop+2) return 0;          // a plate ledge, not a balancing act
-  const cx=(b.x0+b.x1)/2;
   let minX=1e9, maxX=-1e9;
-  for(const h of list){ minX=Math.min(minX,holes[h].x); maxX=Math.max(maxX,holes[h].x); }
+  for(const c of cs){ if(c.x<minX)minX=c.x; if(c.x>maxX)maxX=c.x; }
+  // Centre of mass of the FALLING sheet: use the live poly so the result matches the on-screen pose.
+  const fb=bboxOf(curPoly(p));
+  const cx=(fb.x0+fb.x1)/2;
   const tol=6;
   if(cx<minX-tol) return -1;
   if(cx>maxX+tol) return 1;
@@ -370,19 +453,52 @@ function releasePlates(){
     for(let i=0;i<plates.length;i++){
       const p=plates[i];
       if(p.gone||p.fall) continue;
-      if(!p.pins.every(h=>!screwAt[h])) continue;
+      /* Nothing is holding it: no screw is threaded through any of its bolt holes any more.
+         (A sagging plate is held only by its pivot screw — see boltsHolding.) */
+      if(boltsHolding(p).length>0) continue;
       const live=curPoly(p);
-      // (b) a bolt still standing under the current outline -> it is resting on that bolt head
+      // (b) a bolt still standing under the current outline -> it is resting on that bolt head.
+      // Two ways the plate is "resting":
+      //   (i) real contact: restContacts finds the screw in the plate's footprint at or above
+      //       the plate bottom (screw head touching the plate)
+      //  (ii) sitting on top: the screw head top is just below the plate bottom (within
+      //       SCREW_HEAD_R + 8 px) — the plate is parked on the head with the visible gap
+      // The direction matters: a screw whose head is far ABOVE the plate bottom (screwTop
+      // way above plateBottom) is not a support, it is the previous row that the plate has
+      // already fallen past.
+      const lb=bboxOf(live);
       let supported=false;
       for(let h=0;h<holes.length;h++){
         if(!screwAt[h] || p.pins.indexOf(h)>=0) continue;
-        if(pip(holes[h], live)) { supported=true; break; }
+        if(restContacts(i).some(c=>c.h===h)) { supported=true; break; }
+        const hp=holes[h];
+        const screwTop = hp.y - SCREW_HEAD_R;
+        /* The head is below the plate bottom and the head's top is within (gap+head) pixels
+           of the plate — i.e. the plate is sitting on this head, not parked deep above it. */
+        if(hp.x >= lb.x0-SUPPORT_M && hp.x <= lb.x1+SUPPORT_M
+           && screwTop >= lb.y1 - 2
+           && screwTop <= lb.y1 + SCREW_HEAD_R + 8){
+          supported=true; break;
+        }
       }
       if(supported) continue;
-      // (b) a lower overlapping plate that has not already let go -> it is holding this one up
-      for(let s=0;s<plates.length;s++){
-        if(s===i || plates[s].gone || plates[s].fall || plates[s].layer >= p.layer) continue;
-        if(polysOverlap(live, curPoly(plates[s]))) { supported=true; break; }
+      // (b) a lower overlapping plate that has not already let go -> it is holding this one up.
+      // BUT only if the sheet can actually REST on it: the centre of mass must sit above the
+      // real contact zone (the overlap of the two outlines). A sheet that merely catches the
+      // corner of the plate below with its weight hanging past the contact is NOT supported —
+      // it tips and slides off, exactly like catching a screw head on its edge.
+      {
+        const lb2=bboxOf(live);
+        const cx=(lb2.x0+lb2.x1)/2;
+        for(let s=0;s<plates.length;s++){
+          if(s===i || plates[s].gone || plates[s].fall || plates[s].layer >= p.layer) continue;
+          const sp=curPoly(plates[s]);
+          if(!polysOverlap(live, sp)) continue;
+          const sb=bboxOf(sp);
+          const ox0=Math.max(lb2.x0,sb.x0)-8, ox1=Math.min(lb2.x1,sb.x1)+8;
+          if(cx>=ox0 && cx<=ox1){ supported=true; break; }
+          // centre of mass hangs past the contact zone -> corner balance, not support
+        }
       }
       if(supported) continue;
       const b=bboxOf(p.poly);
@@ -402,7 +518,7 @@ function releasePlates(){
       }
       // pure free fall: no spin, no debris burst, no screen shake
       p.fall={dy:0,vy:0,rot:startRot,rotV:0,ox:ox,oy:oy,landed:false,
-              restDy:0,tip:0,tipDone:false,slide:0,ignore:null,ignoreAt:0};
+              restDy:0,tip:0,slide:0,ignore:null,ignoreAt:0};
       p.droop=null;
       falling.push(p);
       sfxPlate();
@@ -445,13 +561,103 @@ function pointPolyDist(px,py,poly){
   return m;
 }
 const SCREW_HEAD_R=15;   // a swinging plate is caught by a standing screw head of this radius
+
+/* ---------- 钢板也是实体：摆动时撞到别的钢板同样要被挡住 ----------
+   规则：摆动板扫过去的路上，只要"新侵入"了另一块钢板的身体，就算撞上，停在那。
+   "新侵入"是关键 —— 摆动前(rot=0)就已经压在别的钢板上的那片区域，说明两块板本来就是
+   一前一后叠着放的，摆动时摆动板是从它前面(或后面)掠过去的，不该被卡死；
+   只有摆动过程中新扫进去的部分才是真正的碰撞。
+   这样既满足"钢板和螺丝头都是实体"，又不会让一块被别的板盖住的板拔了螺丝后纹丝不动。 */
+/* 两个阈值必须分开，搞成同一个数会顾此失彼：
+   HIT  = 现在切进去多少 px 算撞上（小一点，停得干净）
+   CLEAR= 摆动前离它多远才算"本来在外面"（大一点，相邻钢板本来就是贴着放的，
+          太严格会把"本来就压着"的板一拔螺丝就卡死在原地） */
+const PLATE_HIT_DEPTH=3;
+const PLATE_CLEAR_DEPTH=3;
+/* 点到多边形的"有符号深度"：在里面返回正数(离边界多远)，在外面返回负数(离边界多远)。
+   正负号必须真实反映远近，不能简单用 -1 表示在外面 —— 判定"在外面"要用 -阈值 这种比较。 */
+function pointInDepth(px,py,poly){
+  let m=1e9;
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length];
+    const d=segDist(px,py,a[0],a[1],b[0],b[1]);
+    if(d<m) m=d;
+  }
+  return pip({x:px,y:py},poly) ? m : -m;
+}
+/* 两条线段的交点（没有交点返回 null） */
+function segCross(a,b,c,d){
+  const d1=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+  const d2=(b[0]-a[0])*(d[1]-a[1])-(b[1]-a[1])*(d[0]-a[0]);
+  const d3=(d[0]-c[0])*(a[1]-c[1])-(d[1]-c[1])*(a[0]-c[0]);
+  const d4=(d[0]-c[0])*(b[1]-c[1])-(d[1]-c[1])*(b[0]-c[0]);
+  if(((d1>0)!==(d2>0)) && ((d3>0)!==(d4>0))){
+    const t=d1/(d1-d2);
+    return {x:a[0]+(b[0]-a[0])*t, y:a[1]+(b[1]-a[1])*t};
+  }
+  return null;
+}
+/* 摆动板 pi 周围的"钢板障碍"（一次算好，避免在角度搜索里反复重算） */
+function swingObstacles(pi){
+  const list=[];
+  for(let s=0;s<plates.length;s++){
+    if(s===pi || plates[s].gone || plates[s].fall) continue;   // 已经掉走 / 正在掉的不算障碍
+    /* 正在摆动的钢板也不算障碍。两块板同时吊着摆时，A 的落点取决于 B 停在哪、B 的落点又
+       取决于 A 停在哪，谁先算谁吃亏：A 会被 B 的旧姿态挡在半空，等 B 荡走后 A 还卡在那个
+       角度再也回不去（摆动只能越荡越低），看着就像凭空停住。所以只把"老实钉着不动"的
+       钢板当实体障碍 —— 那才是玩家眼里真正挡路的墙。 */
+    if(plates[s].droop) continue;
+    const sp=curPoly(plates[s]);
+    list.push({poly:sp, bb:bboxOf(sp)});
+  }
+  return list;
+}
+/* 摆动到角度 t 时，摆动板 rp 有没有撞上别的钢板（只算"新切进去"的部分） */
+function swingHitsPlate(p, rp, t, obs){
+  const pv=holes[p.droop.pivot], c=Math.cos(-t), s=Math.sin(-t);
+  /* 把旋转后的某个点倒着转回摆动前的位置：如果它摆动前并不在障碍板身体里，
+     说明是这次摆动才切进去的，算真撞上。 */
+  function wasOutside(x,y,o){
+    const dx=x-pv.x, dy=y-pv.y;
+    return pointInDepth(pv.x+dx*c-dy*s, pv.y+dx*s+dy*c, o.poly) < -PLATE_CLEAR_DEPTH;
+  }
+  const rb=bboxOf(rp);
+  for(const o of obs){
+    if(rb.x1<o.bb.x0 || rb.x0>o.bb.x1 || rb.y1<o.bb.y0 || rb.y0>o.bb.y1) continue;  // 包围盒都不搭边
+    // (1) 边和边交叉：交点是摆动板这回新切进对方的位置
+    for(let i=0;i<rp.length;i++){
+      const a1=rp[i], a2=rp[(i+1)%rp.length];
+      for(let j=0;j<o.poly.length;j++){
+        const P=segCross(a1,a2,o.poly[j],o.poly[(j+1)%o.poly.length]);
+        if(P && wasOutside(P.x,P.y,o)) return true;
+      }
+    }
+    // (2) 摆动板的角扎进了障碍板的身体
+    for(const v of rp)
+      if(pointInDepth(v[0],v[1],o.poly)>PLATE_HIT_DEPTH && wasOutside(v[0],v[1],o)) return true;
+    // (2b) 摆动板的边中段切进去（只看角会漏：一条边斜插进去时，最深的地方在边中间）
+    for(let i=0;i<rp.length;i++){
+      const a1=rp[i], a2=rp[(i+1)%rp.length];
+      for(let k=1;k<=3;k++){
+        const u=k/4, x=a1[0]+(a2[0]-a1[0])*u, y=a1[1]+(a2[1]-a1[1])*u;
+        if(pointInDepth(x,y,o.poly)>PLATE_HIT_DEPTH && wasOutside(x,y,o)) return true;
+      }
+    }
+    // (3) 障碍板的角被摆动板吞了进去（摆动前它并没被这块板盖着）
+    for(const v of o.poly)
+      if(pointInDepth(v[0],v[1],rp)>PLATE_HIT_DEPTH && pointInDepth(v[0],v[1],p.poly) < -PLATE_HIT_DEPTH) return true;
+  }
+  return false;
+}
 /* Would the plate, rotated by t around its pivot, catch on any standing screw head?
    The plate polygon is its OUTER outline; the bolt holes are cut-outs. A screw that aligns
    with one of those holes can pass through, so we subtract the hole openings (radius HOLE_R)
    from the collision test. */
-function swingCollides(p,pi,t){
+function swingCollides(p,pi,t,obs){
   const pv=holes[p.droop.pivot];
   const rp=rotPolyAround(p.poly, pv.x, pv.y, t);
+  // 别的钢板一样是实体：荡过去能蹭到就停在那，不许穿过去
+  if(obs && swingHitsPlate(p,rp,t,obs)) return true;
   // rotate this plate's own holes by the same angle so we can treat them as pass-throughs
   const rholes=[];
   for(const hi of p.pins){
@@ -472,17 +678,47 @@ function swingCollides(p,pi,t){
   }
   return false;
 }
-/* Largest swing angle within |target| that does not collide. Binary search assumes collisions
-   are monotonic while sweeping a rigid body through <=90° — true for these boards. */
+/* Largest swing angle within |target| that does not collide.
+   IMPORTANT: collisions along the arc are NOT monotonic — a sheet can graze one screw at ~70°,
+   clear it again, and only hit the next prop at ~140°. Plain binary search would converge on the
+   LAST collision interval and let the plate slip straight through the FIRST obstacle on its path.
+   So we sweep outward from 0 and stop at the first contact, then binary-refine that boundary:
+   physically the plate always rests against whatever it meets first. */
 function maxSwing(p,pi,target){
-  if(!swingCollides(p,pi,target)) return target;       // clear path -> free swing to vertical
+  /* NOTE: no "target is clear, return it" shortcut — even a clear-looking target may have a
+     collision island earlier on the arc that must stop the plate first. */
   const sign=Math.sign(target)||1;
-  let lo=0, hi=Math.abs(target);
-  for(let it=0;it<16;it++){
-    const mid=(lo+hi)/2;
-    if(swingCollides(p,pi,sign*mid)) hi=mid; else lo=mid;
+  const T=Math.abs(target);
+  let prev=0;
+  const obs=swingObstacles(pi);
+  const STEP=0.06;                                     // ~3.4° sweep step
+  for(let t=STEP;t<=T+STEP;t+=STEP){
+    const cur=Math.min(t,T);
+    if(swingCollides(p,pi,sign*cur,obs)){
+      let lo=prev, hi=cur;
+      for(let it=0;it<14;it++){
+        const mid=(lo+hi)/2;
+        if(swingCollides(p,pi,sign*mid,obs)) hi=mid; else lo=mid;
+      }
+      return sign*Math.max(0,lo-0.05);                 // rest just clear of the FIRST obstacle
+    }
+    prev=cur;
   }
-  return sign*Math.max(0,lo-0.02);                     // rest just clear of the obstacle
+  return target;
+}
+/* Which screws actually PIN this plate down right now?
+   A plate that has already sagged swings around its pivot hole, so its OTHER bolt hole has
+   rotated away from the board hole underneath it. Putting a screw back into that board hole
+   only fills the hole in the backboard — it no longer passes through the plate — so it does
+   NOT hold the plate. Only the pivot screw is still threaded through it.
+   A plate that has never sagged still has both bolt holes sitting on their board holes, so
+   both screws hold it.
+   p.hung / p.hungPivot record that state permanently, because updateDroops clears p.droop the
+   moment the pivot screw comes out — and releasePlates runs right after it. Without a persistent
+   flag the plate would look "still bolted" again and never fall. */
+function boltsHolding(p){
+  if(p.hung) return screwAt[p.hungPivot] ? [p.hungPivot] : [];
+  return p.pins.filter(h=>screwAt[h]);
 }
 function updateDroops(){
   for(let pi=0; pi<plates.length; pi++){
@@ -490,39 +726,48 @@ function updateDroops(){
     /* A plate that has ALREADY let go (p.fall set) or dropped away (gone) is released. Re-inserting
        a screw into one of its old board holes must NOT re-attach / resurrect it — it would snap back
        to its original position. Once it is falling or gone, leave it alone; the screw simply parks in
-       the board hole. The "hang on one screw, re-insert to go level" behaviour still works because in
-       that case p.fall is null (the plate never released). */
-    if(p.gone){ p.droop=null; continue; }
+       the board hole. */
+    if(p.gone){ p.droop=null; p.hung=false; p.hungPivot=-1; continue; }
     if(p.fall){ p.droop=null; continue; }
-    const left=p.pins.filter(h=>screwAt[h]);
-    if(left.length===1){
-      if(!p.droop){
-        const removed=p.pins.find(h=>!screwAt[h]);
-        const pv=holes[left[0]], fe=holes[removed];
+    const held=boltsHolding(p);
+    if(held.length===1){
+      const pivot=held[0];
+      /* Rebuild whenever the pivot is not the screw we are actually hanging from. This is what
+         used to break the game: pull bolt A (hangs on B), drop A back in, then pull B — the
+         droop still pointed at B, a hole whose screw was long gone, so the plate hung on a
+         phantom pivot forever and never fell. */
+      if(!p.droop || p.droop.pivot!==pivot){
+        const removed=p.pins.find(h=>h!==pivot);
+        const pv=holes[pivot], fe=holes[removed];
         const alpha=Math.atan2(fe.y-pv.y,fe.x-pv.x);
         let delta=Math.PI/2-alpha;
         while(delta>Math.PI)delta-=2*Math.PI;
         while(delta<-Math.PI)delta+=2*Math.PI;
+        // The "free end points straight down" target is the NEAREST vertical (the free end can only
+        // fall the short way, not swing all the way around). Clamp delta to ±90° so maxSwing never
+        // sweeps a full circle searching for a collision.
+        if(delta>Math.PI/2)delta-=Math.PI;
+        else if(delta<-Math.PI/2)delta+=Math.PI;
         // free: the unobstructed swing target (free end pointing straight down).
         // target: the same swing clamped by real collision search (may rest on a screw/plate).
-        p.droop={pivot:left[0],rot:0,w:0,target:0,free:delta,reached:0};
+        p.droop={pivot:pivot,rot:0,w:0,target:0,free:delta,reached:0};
         p.droop.target=maxSwing(p,pi,delta);
         p.droop.reached=Math.abs(p.droop.target);
+        p.hung=true; p.hungPivot=pivot;   // this plate now hangs off one bolt only
       }
-    }else if(left.length>=2){
-      // Both screws back in. DESIGN DECISION: a plate that has ALREADY sagged (p.droop set) must
-      // NOT snap back to level — it stays in the tilted pose it was hanging at, held (frozen) by
-      // the two screws. Only a plate that was never disturbed (no droop) stays level. Freezing
-      // target=rot stops the swing animation so it holds the angle instead of easing back to 0.
-      if(p.droop){
-        p.droop.target = p.droop.rot;          // freeze: hold the tilt, no auto-straighten
-        p.lastDroopRot = p.droop.rot; p.lastDroopPivot = p.droop.pivot;
-      }else{
-        p.lastDroopRot=0; p.lastDroopPivot=-1;  // clean pose for a future fall
-      }
+      /* NOTE: no freeze here on purpose. Screwing the loose end back into its board hole must
+         NOT stop a plate that is already swinging — the screw no longer goes through the plate.
+         Gravity keeps hauling it down to the free-hanging limit (90 degrees). */
+    }else if(held.length>=2){
+      // both screws threaded through a plate that has never sagged -> it is bolted flat
+      p.droop=null;
+      p.hung=false; p.hungPivot=-1;
+      p.lastDroopRot=0; p.lastDroopPivot=-1;
     }else{
-      // both screws are out: remember how it was hanging, we start the fall from
-      // exactly that pose so the plate never jumps when it detaches
+      // nothing is holding it any more: remember how it was hanging, we start the fall from
+      // exactly that pose so the plate never jumps when it detaches.
+      // p.hung is deliberately left set — releasePlates() runs next and must still see that the
+      // pivot bolt is gone, otherwise the plate would look bolted again and never drop.
       p.lastDroopRot=p.droop?p.droop.rot:0;
       p.lastDroopPivot=p.droop?p.droop.pivot:-1;
       p.droop=null;
@@ -534,7 +779,10 @@ function snapshot(){
 }
 function restore(s){
   screwAt=s.screwAt.slice();
-  s.gone.forEach((g,i)=>{plates[i].gone=g; plates[i].fall=null;});
+  /* Undo rewinds to a saved screw layout, so the sagging state has to be rebuilt from scratch:
+     drop the "this plate hangs off one bolt" flag and let updateDroops work it out again. */
+  s.gone.forEach((g,i)=>{plates[i].gone=g; plates[i].fall=null;
+    plates[i].droop=null; plates[i].hung=false; plates[i].hungPivot=-1;});
   moves=s.moves; held=s.held; heldFrom=s.heldFrom;
   falling=[];
   updateDroops();
@@ -545,7 +793,8 @@ function loadLevel(i){
   holes=lv.holes.map(h=>({x:h.x,y:h.y}));
   plates=lv.plates.map(p=>({type:p.type, poly:p.poly.map(pt=>pt.slice()),
     pins:p.pins.slice(), layer:p.layer, gone:false, fall:null, droop:null,
-    landed:false, notified:false, lastDroopRot:0, lastDroopPivot:-1}));
+    landed:false, notified:false, lastDroopRot:0, lastDroopPivot:-1,
+    hung:false, hungPivot:-1}));
   // ownerOf[h] = index of the plate whose own pin is hole h (or -1)
   ownerOf=new Array(holes.length).fill(-1);
   for(let i=0;i<plates.length;i++) for(const h of plates[i].pins) ownerOf[h]=i;
@@ -899,38 +1148,75 @@ function loop(ts){
       /* Balancing on a bolt head only works when the head sits under the plate's own centre of
          mass. Catch an edge on a screw and the heavy side slides off: tilt slowly and creep
          downwards until the sheet has slipped past the head, then carry on falling. */
-      if(!f.tip && !f.tipDone){
-        const dir=tippingDir(bi,f.dy,f.oy);
-        if(dir!==0){ f.tip=dir; f.rotV=dir*0.85; f.slide=0; }
+      if(!f.tip){
+        const dir=tippingDir(bi,(f.oy||0)+f.dy);
+        if(dir!==0){
+          f.tip=dir; f.rotV=dir*0.85; f.slide=0;
+          /* Remember exactly which screws it is resting on NOW. When the slide finishes we must
+             ignore only these — re-scanning at the end would sweep up the NEXT row of screws
+             below (the sheet has crept 44px down by then) and the plate would fall straight
+             through that row instead of being caught by it. */
+          f.tipScrews=supportScrewsAt(bi,(f.oy||0)+f.dy);
+        }
       }
       if(f.tip){
         const step=26*dt;
         f.dy+=step; f.rot+=f.rotV*dt; f.slide+=step;
-        if(f.slide>44){                            // slipped clear of the screw head
-          f.tip=0; f.tipDone=true;
-          f.ignore=supportScrewsAt(bi,f.dy,f.oy);  // do not re-catch on the screw it left
+        /* The centre of mass must actually MOVE off the prop while it slides — otherwise the
+           sheet creeps 44px straight down, lands on the very same support again and just sits
+           there. Drift speed is tied to the rotation rate (tangential v = arm × ω) so a small
+           plate slides a little, a long one slides a lot, exactly as it would in real life.
+           The slide ends as soon as the plate's contact set goes empty (it has left the screw
+           head's circle), not on an arbitrary 44px of vertical sink — that was the source of
+           the "drop straight through" bug. */
+        const arm = Math.max(40, (bboxOf(p.poly).x1-bboxOf(p.poly).x0)*0.4);
+        const driftRate = arm * Math.abs(f.rotV);                  // px / s
+        f.ox=(f.ox||0)+f.tip*driftRate*dt;
+        if(restContacts(bi).length===0){                           // cleared the screw head
+          f.tip=0;                                                 // may tip again on the NEXT support it lands on
+          f.ignore=f.tipScrews||[];                                // only the screw it actually slid off
           f.ignoreAt=f.dy;
           f.landed=false; f.vy=70;
         }
         // fall through to the off-screen test below instead of skipping a frame
-      }else if(belowSupportY(bi,f.dy,f.oy)===1e9){
-        // resting on a support below; resume the drop the instant that support clears away
-        f.landed=false; f.vy=0;
+      }else{
+        const lt=belowSupportY(bi,(f.oy||0)+f.dy);
+        if(lt===1e9){
+          // the support under us is gone — unland and resume the free-fall branch next frame
+          f.landed=false; f.vy=0;
+        }else{
+          /* The support can also SINK under a resting sheet: the row it sits on gets pulled,
+             but another row (or a plate ledge) still exists further down. belowSupportY then
+             returns a LOWER top — keep falling until the sheet meets that new support. */
+          const b=bboxOf(p.poly);
+          const restDy=Math.max(0, lt - SCREW_HEAD_R - 8 - b.y1 - (f.oy||0));
+          if(f.dy<restDy-0.5){ f.landed=false; f.vy=0; }
+        }
       }
     }else{
       if(f.ignore && f.dy>f.ignoreAt+90) f.ignore=null;   // well past the head it slid off
       f.vy=Math.min(f.vy+1700*dt, 1500);
       let move=f.vy*dt; if(move>10) move=10;          // cap so a fast plate never tunnels an obstacle
+      /* Sample the support plane BEFORE moving: a fast frame can step clean past a screw row
+         (tunneling — the row would end up ABOVE the sheet's bottom edge and stop counting as
+         support). Sampling first keeps the landing plane valid even when move overshoots it. */
+      const landTop=belowSupportY(bi,(f.oy||0)+f.dy);
       f.dy+=move; f.rot+=f.rotV*dt;
-      const b=bboxOf(p.poly);
-      // land on the first thing beneath it instead of passing through
-      const landTop=belowSupportY(bi,f.dy,f.oy);
-      const GAP=8;
-      const restDy = landTop===1e9 ? 1e9 : Math.max(0, landTop - GAP - b.y1 - (f.oy||0));
-      if(landTop!==1e9 && f.dy>=restDy){ f.dy=restDy; f.vy=0; f.landed=true; f.restDy=restDy; }
+      if(landTop!==1e9){
+        // BelowSupportY returns the y of the screw head centre. The plate rests with its live
+        // (rotated) bottom edge on top of the head, leaving a visual gap. Use the un-rotated
+        // bbox y1 here because curPoly() applies f.dy as part of oy — its y1 already includes
+        // the current offset, so the math would clamp to 0 every frame. The un-rotated y1
+        // captures the plate's intrinsic bottom, which is what we want to "park above the head".
+        const b=bboxOf(p.poly);
+        const restDy = Math.max(0, landTop - SCREW_HEAD_R - 8 - b.y1 - (f.oy||0));
+        if(f.dy>=restDy){ f.dy=restDy; f.vy=0; f.landed=true; f.restDy=restDy; }
+      }
     }
-    const fb=bboxOf(p.poly);
-    if(fb.y0+(f.oy||0)+f.dy>LOGIC_H+160){
+    /* off-screen test against the LIVE bbox — a tilted sheet with a corner poking off the bottom
+       would otherwise keep drawing for a few extra frames after the visual edge was already gone. */
+    const fb=bboxOf(curPoly(p));
+    if(fb.y0>LOGIC_H+160){
       falling.splice(i,1); p.fall=null; p.gone=true; checkWin();
     }
   }
@@ -940,7 +1226,7 @@ function loop(ts){
     // obstacles can appear/disappear while it hangs (a plate below falls away, a screw is
     // parked into or pulled out of its path) — re-run the collision clamp every frame so the
     // swing resumes when the way clears, or rests the instant something new blocks it
-    if(p.pins.filter(h=>screwAt[h]).length===1 && p.droop.free!==undefined){
+    if(boltsHolding(p).length===1 && p.droop.free!==undefined){
       const t=maxSwing(p,plates.indexOf(p),p.droop.free);
       /* Gravity only ever pulls a hanging plate FURTHER down. Clearing an obstacle out of the
          swing opens the arc up, but dropping that screw back in must NOT haul the plate back up
@@ -956,7 +1242,28 @@ function loop(ts){
     d.rot+=d.w*dt;
     if(d.target!==0){
       if(d.target<0 ? d.rot<=d.target : d.rot>=d.target){ d.rot=d.target; d.w=-d.w*0.22; }
-    }else if(Math.abs(d.rot)<0.015 && Math.abs(d.w)<0.06){ p.droop=null; }
+    }
+    /* NEW: 实时钳制 —— 摆动途中若某块"静止钢板"新落到它的路径上（或某块摆动中的板
+       恢复静止后挡住了它），当前姿态一旦真正切进对方身体，就立刻把板子按回障碍前的
+       边界，不许穿过去。swingHitsPlate 的 wasOutside 已排除"起始就前后叠放"的情况，
+       所以起始贴着的板子不会因此卡死。 */
+    if(boltsHolding(p).length===1 && p.droop.free!==undefined){
+      const pi=plates.indexOf(p);
+      const rp=curPoly(p);
+      const obs=swingObstacles(pi);
+      if(swingHitsPlate(p,rp,d.rot,obs)){
+        const t2=maxSwing(p,pi,d.rot);                 // 从0到当前角之间，不穿透的最大角
+        const mag2=Math.abs(t2);
+        if(mag2 < Math.abs(d.rot)-0.02){               // 当前姿态确实越界了
+          const stop=Math.sign(d.rot)*mag2;
+          d.rot=stop; d.target=stop; d.w=0;
+          if(p.droop.reached!==undefined) p.droop.reached=mag2;
+        }
+      }
+    }
+    /* when target === 0 and motion has died out, updateDroops() next frame will rebuild droop
+       from the live boltsHolding() — leave it alone here so it never teleports a plate to flat
+       from a half-arc while the player is still staring at it. */
   }
   for(let i=parts.length-1;i>=0;i--){ const p=parts[i];
     p.x+=p.vx; p.y+=p.vy;
