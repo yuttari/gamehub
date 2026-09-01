@@ -347,6 +347,21 @@ function restContacts(i){
   }
   return out;
 }
+/* 下层板能托住这块板的最高顶面 —— 统一规则：重心必须落在两轮廓接触区内（±6）。
+   只搭到对方的角、重心悬在外面时，那块板托不住它。belowSupportY、翘头滑移退出、
+   落地平衡三处共用这一份判定，规则不一致就会出现原地蹦跳或悬空冻结。 */
+function ledgeTopHolding(i){
+  const p=plates[i], poly=curPoly(p), lb=bboxOf(poly), cx=(lb.x0+lb.x1)/2;
+  let top=1e9;
+  for(let s=0;s<plates.length;s++){
+    if(s===i||plates[s].gone||plates[s].fall||plates[s].layer>=p.layer) continue;
+    if(!polysOverlap(poly,curPoly(plates[s]))) continue;
+    const sb=bboxOf(plates[s].poly);
+    const ox0=Math.max(lb.x0,sb.x0)-6, ox1=Math.min(lb.x1,sb.x1)+6;
+    if(cx>=ox0 && cx<=ox1 && sb.y0<top) top=sb.y0;
+  }
+  return top;
+}
 function belowSupportY(i, totalDy){  // totalDy = oy + dy — the full vertical offset applied to curPoly
   /* Top of the highest standing screw or plate ledge that physically contacts this plate's
      current live outline. Falls back to the nearest plate ledge below (a real surface to land
@@ -376,17 +391,9 @@ function belowSupportY(i, totalDy){  // totalDy = oy + dy — the full vertical 
       }
     }
   }
-  // plate ledges underneath — any plate that physically touches this one and has a smaller layer
-  // (lies BELOW in the stacking order). Its top edge is the surface to land on.
-  const poly=curPoly(plates[i]);
-  for(let s=0;s<plates.length;s++){
-    if(s===i||plates[s].gone||plates[s].fall) continue;
-    if(plates[s].layer >= plates[i].layer) continue;
-    if(polysOverlap(poly, curPoly(plates[s]))){
-      const sb=bboxOf(plates[s].poly);
-      if(sb.y0 < top) top = sb.y0;
-    }
-  }
+  // plate ledges underneath — 统一走 ledgeTopHolding 的"重心在接触区内"规则
+  const lt=ledgeTopHolding(i);
+  if(lt<top) top=lt;
   return top;
 }
 /* The standing screws a falling plate would currently touch at its lowest contact row. */
@@ -446,6 +453,14 @@ function tippingDir(i, totalDy){
    Called every frame, so as soon as the plate below drops away the one on top follows.
    (a) nothing below                -> it falls
    (b) a bolt or a plate below      -> it stays put, resting on that obstacle            */
+/* 翘头滑移何时结束：螺丝接触全清空，并且（若还压着下层板）重心已滑出接触区。
+   只查螺丝接触会在"坐在下层板顶角"的姿势上 1 帧误判滑出 —— 那种姿势本来就没有
+   螺丝接触，于是立刻退出滑移、下帧又落地、又翘头，原地蹦个不停。
+   角一受力它就该绕着角翻下去滑离，直到重心真正滑出接触区才算离开支撑。 */
+function slideCleared(i){
+  if(restContacts(i).length) return false;
+  return ledgeTopHolding(i)===1e9;    // 重心已滑出下层板接触区，才算真正离开支撑
+}
 function releasePlates(){
   let changed=true;
   while(changed){
@@ -1172,7 +1187,7 @@ function loop(ts){
         const arm = Math.max(40, (bboxOf(p.poly).x1-bboxOf(p.poly).x0)*0.4);
         const driftRate = arm * Math.abs(f.rotV);                  // px / s
         f.ox=(f.ox||0)+f.tip*driftRate*dt;
-        if(restContacts(bi).length===0){                           // cleared the screw head
+        if(slideCleared(bi)){                                      // cleared the screw head / slid off the ledge corner
           f.tip=0;                                                 // may tip again on the NEXT support it lands on
           f.ignore=f.tipScrews||[];                                // only the screw it actually slid off
           f.ignoreAt=f.dy;
@@ -1184,12 +1199,19 @@ function loop(ts){
         if(lt===1e9){
           // the support under us is gone — unland and resume the free-fall branch next frame
           f.landed=false; f.vy=0;
+        }else if(restContacts(bi).length===0 && ledgeTopHolding(bi)===1e9){
+          /* 悬空假支撑：支撑面只是"下方有螺丝待会儿会接住"的预判，但 live 轮廓此刻
+             既没碰到任何螺丝头、也没真坐到下层板上 —— 不能当成已落地平衡住。
+             撒手继续掉，等真正落到螺丝头上有了实体接触，翻向逻辑自然会把它滑离。 */
+          f.landed=false; f.vy=0;
         }else{
           /* The support can also SINK under a resting sheet: the row it sits on gets pulled,
              but another row (or a plate ledge) still exists further down. belowSupportY then
              returns a LOWER top — keep falling until the sheet meets that new support. */
-          const b=bboxOf(p.poly);
-          const restDy=Math.max(0, lt - SCREW_HEAD_R - 8 - b.y1 - (f.oy||0));
+          /* 反推停靠点要用"当前 live 底边 − 当前 dy"：旋转会让 live 底边比未旋转 bbox
+             高出一段（斜板尤其明显），旧算法漏掉这段，会把斜板冻在悬空的假平面上。 */
+          const liveB=bboxOf(curPoly(p));
+          const restDy=Math.max(0, lt - SCREW_HEAD_R - 8 - liveB.y1 + f.dy);
           if(f.dy<restDy-0.5){ f.landed=false; f.vy=0; }
         }
       }
@@ -1204,12 +1226,11 @@ function loop(ts){
       f.dy+=move; f.rot+=f.rotV*dt;
       if(landTop!==1e9){
         // BelowSupportY returns the y of the screw head centre. The plate rests with its live
-        // (rotated) bottom edge on top of the head, leaving a visual gap. Use the un-rotated
-        // bbox y1 here because curPoly() applies f.dy as part of oy — its y1 already includes
-        // the current offset, so the math would clamp to 0 every frame. The un-rotated y1
-        // captures the plate's intrinsic bottom, which is what we want to "park above the head".
-        const b=bboxOf(p.poly);
-        const restDy = Math.max(0, landTop - SCREW_HEAD_R - 8 - b.y1 - (f.oy||0));
+        // (rotated) bottom edge on top of the head. Compute the park point from the CURRENT live
+        // bbox minus the current dy — a rotated sheet's live bottom sits higher than its
+        // un-rotated bbox, and ignoring that froze tilted plates on a phantom plane in mid-air.
+        const liveB=bboxOf(curPoly(p));
+        const restDy = Math.max(0, landTop - SCREW_HEAD_R - 8 - liveB.y1 + f.dy);
         if(f.dy>=restDy){ f.dy=restDy; f.vy=0; f.landed=true; f.restDy=restDy; }
       }
     }
