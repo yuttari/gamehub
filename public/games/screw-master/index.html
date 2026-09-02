@@ -217,6 +217,22 @@ function segDist(px,py,ax,ay,bx,by){
   const cx=ax+t*dx, cy=ay+t*dy;
   return Math.hypot(px-cx, py-cy);
 }
+/* 板在某一列 x 上的【真实下表面 y】（该列竖线与轮廓所有边交点的最大 y）。
+   斜板/椭圆板的最低点往往不在螺丝所在的那一列 —— 拿"包围盒底边"当板面会把板
+   停在空中（L8 椭圆板荡到邻板旁后冻住不动，就是这么来的）。
+   该列不与板相交时返回 1e9。 */
+function surfaceYAt(poly, x){
+  let best=-1e9;
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length];
+    const ax=a[0], ay=a[1], bx=b[0], by=b[1];
+    if((ax===bx) && Math.abs(ax-x)<0.001){ best=Math.max(best, ay, by); continue; }
+    if((x<Math.min(ax,bx)) || (x>Math.max(ax,bx))) continue;
+    const t=(x-ax)/(bx-ax);
+    best=Math.max(best, ay+t*(by-ay));
+  }
+  return best===-1e9 ? 1e9 : best;
+}
 /* Radius of a board hole opening, including its metal chamfer ring (drawHole draws the dark
    circle at 15 and the ring out to 18). The hole counts as blocked if a plate covers ANY part
    of this full 18px circle — "the hole is not 100% exposed" means no screw. */
@@ -327,21 +343,23 @@ function restContacts(i){
     // The plate catches on a screw head two ways:
     // (a) Euclidean: screw centre is inside the polygon or within SCREW_HEAD_R of an edge
     //     — handles tilted plates where the contact is a slanted side graze
-    // (b) Vertical: the screw head top (hp.y - SCREW_HEAD_R) is ABOVE or AT the plate bottom,
-    //     and the screw centre x lies within the plate's horizontal span. This covers the
-    //     normal "plate sits on top of a screw head" pose. Critically, the screw head must
-    //     NOT be deep below the plate (where the plate has already passed through it on its
-    //     way down) — in that case the plate is no longer resting on the head, it is falling
-    //     past it.
+    // (b) Vertical: the screw head top (hp.y - SCREW_HEAD_R) is ABOVE or AT the plate's LOWER
+    //     SURFACE IN THE SCREW'S OWN COLUMN. This covers the normal "plate sits on top of a
+    //     screw head" pose. Critically, the screw head must NOT be deep below the plate (where
+    //     the plate has already passed through it on its way down) — in that case the plate is
+    //     no longer resting on the head, it is falling past it.
     const euc = pointPolyDist(hp.x,hp.y,poly);
     const lb  = bboxOf(poly);
-    const plateBottom = lb.y1;
+    /* 用"螺丝所在列的真实下表面"而不是包围盒底边：椭圆/斜板的最低点常常在别的列，
+       拿包围盒底边判定会出现"板明明悬在螺丝上方十几像素却被当成已穿过"，
+       于是 restContacts 报无接触、belowSupportY 却报有支撑，两边打架把板冻在空中。 */
+    const plateBottom = surfaceYAt(poly, hp.x);
     const screwTop    = hp.y - SCREW_HEAD_R;   // top of the cylinder's visible cap
-    const inSpan = hp.x >= lb.x0 - SCREW_HEAD_R && hp.x <= lb.x1 + SCREW_HEAD_R;
-    /* screwTop >= plateBottom means the head's top is at or above the plate's bottom (still
-       touching or in the gap above it). If the head is below the plate (screwTop < plateBottom)
-       the plate has already passed through it — no contact. */
-    const vertDist = (inSpan && screwTop >= plateBottom) ? (screwTop - plateBottom) : 1e9;
+    /* gap = 螺丝头顶 - 该列板面：>0 悬空(待落)，<0 已嵌入(上一帧落体步长/旋转造成)。
+       允许少量嵌入仍算接触，避免"擦着头顶过去"时两边判定不一致。 */
+    const PEN_TOL = 12;
+    const gap = (plateBottom===1e9) ? 1e9 : (screwTop - plateBottom);
+    const vertDist = (gap >= -PEN_TOL && gap <= SCREW_HEAD_R) ? Math.abs(gap) : 1e9;
     const dist = Math.min(euc, vertDist);
     if(dist <= SCREW_HEAD_R) out.push({h, x:hp.x, y:hp.y, dist});
   }
@@ -386,7 +404,10 @@ function belowSupportY(i, totalDy){  // totalDy = oy + dy — the full vertical 
       if(ign && ign.indexOf(h)>=0) continue;
       if(p.pins.indexOf(h)>=0) continue;
       const hp=holes[h];
-      if(hp.x >= lb.x0-SUPPORT_M && hp.x <= lb.x1+SUPPORT_M && hp.y > lb.y1){
+      /* 同样按"螺丝所在列的真实板面"判断螺丝是否在板的下方 —— 与 restContacts 用同一把尺子，
+         否则会出现 restContacts 说没碰到、这里却说下面有支撑的自相矛盾（板会被冻在半空）。 */
+      const surf=surfaceYAt(poly, hp.x);
+      if(surf!==1e9 && hp.y > surf){
         if(hp.y < top) top = hp.y;
       }
     }
@@ -395,6 +416,47 @@ function belowSupportY(i, totalDy){  // totalDy = oy + dy — the full vertical 
   const lt=ledgeTopHolding(i);
   if(lt<top) top=lt;
   return top;
+}
+/* belowSupportY 选中的支撑面所在的 x 列（螺丝支撑），没有具体列（下层板顶面）时返回 NaN。
+   必须与 belowSupportY 用完全相同的挑选顺序，否则停靠点会算到另一列上去。 */
+function belowSupportX(i){
+  const cs=restContacts(i);
+  if(cs.length){
+    let best=null;
+    for(const c of cs) if(!best || c.y<best.y) best=c;
+    if(best) return best.x;
+  }else{
+    const p=plates[i];
+    const ign=p.fall && p.fall.ignore;
+    const poly=curPoly(p);
+    let bx=NaN, by=1e9;
+    for(let h=0;h<holes.length;h++){
+      if(!screwAt[h]) continue;
+      if(ign && ign.indexOf(h)>=0) continue;
+      if(p.pins.indexOf(h)>=0) continue;
+      const hp=holes[h];
+      const surf=surfaceYAt(poly, hp.x);
+      if(surf!==1e9 && hp.y>surf && hp.y<by){ by=hp.y; bx=hp.x; }
+    }
+    if(!isNaN(bx)) return bx;
+  }
+  return NaN;                    // 支撑是下层板顶面，没有"某一列"
+}
+/* 落到支撑面 landTop 上时板应有的 dy（未钳制，可能为负 = 板面已越过该平面）。
+   用【支撑所在列的真实下表面】而不是包围盒底边：斜板/椭圆板的最低点常常不在支撑那一列，
+   拿包围盒底边算停靠点会把板停在离支撑面几十像素的空中 —— 板既碰不到东西、又被判成已落地，
+   再也不会往下走（L8 椭圆板荡到邻板旁后冻住不动，就是这么来的）。
+   没有具体列时（下层板顶面）退回包围盒底边，保持原有行为。 */
+function parkDyRaw(i, landTop, sx){
+  const p=plates[i];
+  if(landTop===1e9) return 1e9;
+  const poly=curPoly(p);
+  let ref=bboxOf(poly).y1;
+  if(sx!==undefined && !isNaN(sx)){
+    const s=surfaceYAt(poly, sx);
+    if(s!==1e9) ref=s;
+  }
+  return landTop - SCREW_HEAD_R - 8 - ref + ((p.fall&&p.fall.dy)||0);
 }
 /* The standing screws a falling plate would currently touch at its lowest contact row. */
 function supportScrewsAt(i, totalDy){
@@ -1208,10 +1270,9 @@ function loop(ts){
           /* The support can also SINK under a resting sheet: the row it sits on gets pulled,
              but another row (or a plate ledge) still exists further down. belowSupportY then
              returns a LOWER top — keep falling until the sheet meets that new support. */
-          /* 反推停靠点要用"当前 live 底边 − 当前 dy"：旋转会让 live 底边比未旋转 bbox
-             高出一段（斜板尤其明显），旧算法漏掉这段，会把斜板冻在悬空的假平面上。 */
-          const liveB=bboxOf(curPoly(p));
-          const restDy=Math.max(0, lt - SCREW_HEAD_R - 8 - liveB.y1 + f.dy);
+          /* 反推停靠点要用"支撑所在列的真实下表面 − 当前 dy"：斜板/椭圆板的最低点在别的列时，
+             包围盒底边会把停靠点算高几十像素，板于是被冻在悬空的假平面上。 */
+          const restDy=Math.max(0, parkDyRaw(bi, lt, belowSupportX(bi)));
           if(f.dy<restDy-0.5){ f.landed=false; f.vy=0; }
         }
       }
@@ -1223,15 +1284,15 @@ function loop(ts){
          (tunneling — the row would end up ABOVE the sheet's bottom edge and stop counting as
          support). Sampling first keeps the landing plane valid even when move overshoots it. */
       const landTop=belowSupportY(bi,(f.oy||0)+f.dy);
+      const landX=belowSupportX(bi);              // 同样在移动前取样，与 landTop 配对
       f.dy+=move; f.rot+=f.rotV*dt;
       if(landTop!==1e9){
-        // BelowSupportY returns the y of the screw head centre. The plate rests with its live
-        // (rotated) bottom edge on top of the head. Compute the park point from the CURRENT live
-        // bbox minus the current dy — a rotated sheet's live bottom sits higher than its
-        // un-rotated bbox, and ignoring that froze tilted plates on a phantom plane in mid-air.
-        const liveB=bboxOf(curPoly(p));
-        const restDy = Math.max(0, landTop - SCREW_HEAD_R - 8 - liveB.y1 + f.dy);
-        if(f.dy>=restDy){ f.dy=restDy; f.vy=0; f.landed=true; f.restDy=restDy; }
+        /* 停靠点用"支撑所在列的真实下表面"反推 —— 包围盒底边属于别的列时，按它算出来的
+           停靠点会在板真正落到支撑面之前就出现（甚至被 max(0,...) 夹成 0），板于是被钉在
+           半空：既碰不到任何东西，又被判成已落地。raw<0 表示板面已越过该平面（真的擦过去了），
+           这时不能落地，让它继续掉。 */
+        const raw = parkDyRaw(bi, landTop, landX);
+        if(raw>=0 && f.dy>=raw){ f.dy=raw; f.vy=0; f.landed=true; f.restDy=raw; }
       }
     }
     /* off-screen test against the LIVE bbox — a tilted sheet with a corner poking off the bottom
